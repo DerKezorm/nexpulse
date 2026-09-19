@@ -8,7 +8,7 @@ import DataTab from './settings/DataTab'
 import PlanTab from './settings/PlanTab'
 import SourcesTab from './settings/SourcesTab'
 
-const TABS = ['sources', 'access', 'plan', 'data'] as const
+const TABS = ['sources', 'access', 'plan', 'alerts', 'data'] as const
 type TabName = (typeof TABS)[number]
 
 export default function SettingsPage() {
@@ -30,13 +30,15 @@ export default function SettingsPage() {
             { value: 'sources', label: t('settings.tabs.sources'), symbol: 'globe' },
             { value: 'access', label: t('settings.tabs.access'), symbol: 'key' },
             { value: 'plan', label: t('settings.tabs.plan'), symbol: 'plan' },
+            { value: 'alerts', label: t('settings.tabs.alerts'), symbol: 'bell' },
             { value: 'data', label: t('settings.tabs.data'), symbol: 'data' },
           ]}
         />
       </div>
       {tab === 'sources' && <SourcesTab />}
       {tab === 'access' && <AccessTab />}
-      {tab === 'plan' && <PlanTab />}
+      {tab === 'plan' && <PlanTab part="plan" />}
+      {tab === 'alerts' && <PlanTab part="alerts" />}
       {tab === 'data' && <DataTab />}
     </div>
   )

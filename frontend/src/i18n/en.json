@@ -201,12 +201,13 @@
   },
   "settings": {
     "title": "Settings",
-    "lead": "Sources, access, your plan and alerts.",
+    "lead": "Sources, access, your plan, alerts and data.",
     "tabs": {
       "sources": "Sources",
       "access": "Access and API",
-      "plan": "Plan and alerts",
-      "data": "Data"
+      "plan": "Plan",
+      "data": "Data",
+      "alerts": "Alerts"
     }
   },
   "sources": {
@@ -311,7 +312,7 @@
     "threshold": "Flag a test below",
     "thresholdOption": "{{pct}} % of your plan",
     "alerts": "Alerts",
-    "alertsIntro": "When nexpulse should tell you. Only works with a notification target below.",
+    "alertsIntro": "When nexpulse should tell you, and where the message goes.",
     "alertBelow": "Test below the plan threshold",
     "alertFailed": "Test failed, for example no connection",
     "alertPing": "Ping above {{ms}} ms",

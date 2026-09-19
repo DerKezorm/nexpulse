@@ -105,7 +105,10 @@ export default function LivePage() {
           ) : null
         }
       />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-stretch">
+        {/* Links Messung und Verbindung, rechts das letzte Ergebnis: So sind beide Spalten
+            etwa gleich hoch, und kein Block haengt allein unten. */}
+        <div className="flex flex-col gap-5">
         <Card className="p-5 sm:p-6">
           {/* Tacho links, die drei Werte daneben: So passt die Messung ohne Scrollen auf den Schirm. */}
           <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_10.5rem] sm:gap-4">
@@ -199,11 +202,10 @@ export default function LivePage() {
             </div>
           )}
         </Card>
-
-        <div className="flex flex-col gap-5">
-          <LastResult result={latest.data ?? null} stats={stats.data} />
           <Connection result={latest.data ?? null} live={live.running ? { server: live.server, location: live.location } : null} settings={settings.data} />
         </div>
+
+        <LastResult result={latest.data ?? null} stats={stats.data} />
       </div>
     </div>
   )
@@ -258,7 +260,7 @@ function Delta({ value, average, lowerIsBetter = false }: { value: number | null
 
 function Tile({ label, value, unit, children }: { label: string; value: string; unit: string; children?: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-ink-700 bg-ink-900 px-3.5 py-2.5">
+    <div className="flex flex-col justify-center rounded-xl border border-ink-700 bg-ink-900 px-3.5 py-2.5">
       <p className="text-xs text-mist-600">{label}</p>
       <p className="text-xl font-bold tabular-nums">
         {value}
@@ -280,14 +282,15 @@ function LastResult({ result, stats }: { result: Result | null; stats: Stats | u
     )
   }
   return (
-    <Card>
+    <Card className="flex flex-col">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t('live.lastResult')}</h2>
         <Badge>
           {dateTime(result.started_at)} · {t(`trigger.${result.trigger}`)}
         </Badge>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
+      {/* Die Kacheln fuellen die Hoehe der linken Spalte, statt unten Leere zu lassen. */}
+      <div className="mt-4 grid flex-1 auto-rows-fr grid-cols-2 gap-2.5">
         <Tile label={t('metrics.download')} value={speed(result.download_mbps)} unit="Mbit/s">
           <Delta value={result.download_mbps} average={stats?.download_mbps.avg} />
         </Tile>

@@ -201,12 +201,13 @@
   },
   "settings": {
     "title": "Einstellungen",
-    "lead": "Quellen, Zugang, dein Tarif und Warnungen.",
+    "lead": "Quellen, Zugang, dein Tarif, Warnungen und Daten.",
     "tabs": {
       "sources": "Quellen",
       "access": "Zugang und API",
-      "plan": "Tarif und Warnungen",
-      "data": "Daten"
+      "plan": "Tarif",
+      "data": "Daten",
+      "alerts": "Warnungen"
     }
   },
   "sources": {
@@ -311,7 +312,7 @@
     "threshold": "Test markieren unter",
     "thresholdOption": "{{pct}} % deines Tarifs",
     "alerts": "Warnungen",
-    "alertsIntro": "Wann nexpulse dir Bescheid gibt. Klappt nur mit einem Ziel für Benachrichtigungen unten.",
+    "alertsIntro": "Wann nexpulse dir Bescheid gibt, und wohin die Nachricht geht.",
     "alertBelow": "Test unter der Tarifschwelle",
     "alertFailed": "Test gescheitert, etwa ohne Verbindung",
     "alertPing": "Ping über {{ms}} ms",

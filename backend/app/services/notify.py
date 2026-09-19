@@ -68,13 +68,24 @@ def compose(result: Result, found: list[str], settings: dict[str, Any]) -> tuple
     return title, "\n".join(lines)
 
 
-async def send(kind: str, url: str, token: str, title: str, body: str, payload: dict[str, Any]) -> None:
+#: ntfy-Symbol je Anlass (Emoji-Kurznamen von ntfy).
+TAGS = {
+    "failed": "warning",
+    "below_plan": "chart_with_downwards_trend",
+    "ping": "hourglass",
+    "test": "white_check_mark",
+}
+
+
+async def send(
+    kind: str, url: str, token: str, title: str, body: str, payload: dict[str, Any], reason: str = "test"
+) -> None:
     if kind not in KINDS or not url:
         raise NotifyError("notify_not_configured")
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
             if kind == "ntfy":
-                headers = {"Title": title, "Tags": "chart_with_downwards_trend"}
+                headers = {"Title": title, "Tags": TAGS.get(reason, "information_source")}
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                 response = await client.post(url, content=body.encode("utf-8"), headers=headers)
@@ -111,6 +122,7 @@ async def after_result(result: Result) -> None:
             title,
             body,
             {"event": "speedtest." + found[0], "reasons": found, "result": result_dict(result)},
+            reason=found[0],
         )
         logger.info("Sent %s notification for test %s (%s)", settings["notify_kind"], result.id, ", ".join(found))
     except NotifyError as exc:

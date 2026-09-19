@@ -7,7 +7,8 @@ import { useNotice } from '../../components/Notice'
 import { Banner, Button, Field, PageLoading, Section, SelectField, Switch } from '../../components/ui'
 import { useLoad } from '../../lib/useLoad'
 
-export default function PlanTab() {
+/** Tarif und Warnungen teilen sich Laden und Speichern, zeigen aber je einen eigenen Reiter. */
+export default function PlanTab({ part }: { part: 'plan' | 'alerts' }) {
   const { t } = useTranslation()
   const notify = useNotice()
   const settings = useLoad(() => api.get<Settings>('/api/settings'))
@@ -91,6 +92,7 @@ export default function PlanTab() {
   return (
     <div className="flex flex-col gap-5">
       {error && <Banner tone="bad">{error}</Banner>}
+      {part === 'plan' && (
       <Section title={t('plan.title')} intro={t('plan.intro')}>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label={t('plan.down')} type="number" min={0} inputMode="decimal" value={down} placeholder="1000" onChange={(event) => setDown(event.target.value)} />
@@ -110,6 +112,10 @@ export default function PlanTab() {
         </div>
       </Section>
 
+      )}
+
+      {part === 'alerts' && (
+        <>
       <Section title={t('plan.alerts')} intro={t('plan.alertsIntro')}>
         <Switch label={t('plan.alertBelow')} checked={data.alert_below_plan} onChange={(value) => void save({ alert_below_plan: value })} />
         <Switch label={t('plan.alertFailed')} checked={data.alert_failed} onChange={(value) => void save({ alert_failed: value })} />
@@ -168,6 +174,8 @@ export default function PlanTab() {
           )}
         </div>
       </Section>
+        </>
+      )}
     </div>
   )
 }
