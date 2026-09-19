@@ -195,3 +195,11 @@ def test_random_schedule_gets_a_seed_and_keeps_it(client: TestClient) -> None:
     updated = client.put(f"/api/schedules/{created['id']}", json={**body, "name": "Renamed"}, headers=UI).json()
     assert updated["seed"] == created["seed"]
     assert updated["next_run_at"] == created["next_run_at"]
+
+
+def test_unsaved_schedule_uses_the_defaults(client: TestClient) -> None:
+    # Im Code angelegt, noch nicht gespeichert: SQLAlchemy hat die Standardwerte noch nicht gesetzt.
+    with SessionLocal() as db:
+        schedule = Schedule(name="Fresh", mode="daily", daily_time="05:00")
+        scheduler.reschedule(db, schedule)
+    assert schedule.next_run_at is not None

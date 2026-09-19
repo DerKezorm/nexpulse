@@ -30,6 +30,8 @@ def main() -> None:
     with SessionLocal() as db:
         db.execute(delete(Result))
         db.execute(delete(Schedule))
+        # Zuerst die Zeitzone: Zeitplaene rechnen ihre Termine in ihr.
+        settings_service.save(db, {"plan_down": 1000, "plan_up": 50, "timezone": "Europe/Berlin"})
         for step in range(360, 0, -1):
             started = now - timedelta(hours=2 * step)
             hour = (started.hour + 2) % 24
@@ -70,7 +72,6 @@ def main() -> None:
             reschedule(db, schedule)
             db.add(schedule)
         db.commit()
-        settings_service.save(db, {"plan_down": 1000, "plan_up": 50, "timezone": "Europe/Berlin"})
     print("Demo data written.")
 
 

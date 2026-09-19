@@ -7,6 +7,10 @@ what you pay for.
 > **Status:** early. A small side project, part of the nex apps
 > ([Nexview](https://github.com/DerKezorm/nexview) and friends).
 
+![Live view: gauge with ping, download and upload, the last result and the connection](docs/screenshots/live.png)
+
+The screenshots show a throwaway instance with made-up data.
+
 ## What it does
 
 - **Live view** with a gauge: ping, download and upload as they happen, whether
@@ -16,9 +20,11 @@ what you pay for.
 - **Everything measurable:** download, upload, ping, jitter, lowest and highest
   ping, latency under load (bufferbloat), and packet loss where the source
   measures it.
-- **Schedules:** every n minutes, once a day or a cron expression, limited to
-  weekdays and a time window, with an optional random offset so not everybody
-  hits the same server on the hour. Tests never overlap.
+- **Schedules:** every n minutes, once a day, a cron expression, or **n times a
+  day at random times**: the day is split into n equal parts with one test at a
+  random minute in each, drawn anew every day, so over a few weeks every hour is
+  covered and busy times show up. All of them can be limited to weekdays and a
+  time window. Tests never overlap.
 - **History** with charts, averages and a CSV export.
 - **Your plan:** enter what your provider promises, and nexpulse marks tests
   below a threshold of it.
@@ -28,6 +34,8 @@ what you pay for.
 - **No accounts.** Optionally one password for the interface. The API always
   needs a key.
 - German and English, dark and light.
+
+![History with averages, the plan line and a chart per direction](docs/screenshots/history.png)
 
 ## Sources
 
@@ -49,6 +57,8 @@ it on a device that other devices can reach over the network, or on routers,
 modems or other devices that are not personal computers. A container in a
 homelab falls under that. nexpulse says so before you activate it; if you do, it
 is your decision and your risk.
+
+![Schedules, including one with random times](docs/screenshots/schedule.png)
 
 ## Install
 
