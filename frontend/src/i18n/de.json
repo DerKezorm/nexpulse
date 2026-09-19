@@ -61,7 +61,7 @@
     "lastResult": "Letztes Ergebnis",
     "noResultYet": "Noch kein Test. Starte links einen oder lege einen Zeitplan an.",
     "vsAverage": "zum 7-Tage-Schnitt",
-    "lossNotMeasured": "misst diese Quelle nicht",
+    "lossNotMeasured": "nicht gemessen",
     "loadedHint": "Download / Upload, Bufferbloat",
     "belowPlan": "Dieser Test lag unter der Schwelle deines Tarifs.",
     "connection": "Verbindung",

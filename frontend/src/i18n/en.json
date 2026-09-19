@@ -61,7 +61,7 @@
     "lastResult": "Last result",
     "noResultYet": "No test yet. Start one on the left or add a schedule.",
     "vsAverage": "vs. 7-day average",
-    "lossNotMeasured": "not measured by this source",
+    "lossNotMeasured": "not measured",
     "loadedHint": "down / up, bufferbloat",
     "belowPlan": "This test was below the threshold of your plan.",
     "connection": "Connection",
