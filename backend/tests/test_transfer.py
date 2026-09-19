@@ -6,6 +6,7 @@ richtigen Reihenfolge, Bytes gezaehlt, Ergebnis gefuellt, Abbruch greift.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
 from typing import Any
 from urllib.parse import parse_qs
@@ -19,6 +20,8 @@ from app.services.engines.base import Cancelled, MeasurementError, Reporter
 CHUNK = b"x" * 262_144
 #: Welche Upload-Anfragen der nachgebaute Server abweist: "none", "every_other" oder "all".
 FLAKY = {"mode": "none", "count": 0}
+#: Nach so vielen Downloads antwortet der nachgebaute Server mit 429, wie Cloudflare nach 900 MB.
+DOWN_CAP = {"after": 0, "count": 0}
 
 
 async def fake_server(scope: dict[str, Any], receive: Any, send: Any) -> None:
@@ -36,6 +39,10 @@ async def fake_server(scope: dict[str, Any], receive: Any, send: Any) -> None:
         body = b"colo=FRA\nloc=DE\nip=203.0.113.5\n"
     elif path == "/__down":
         size = int(query.get("bytes", ["0"])[0])
+        if size:
+            DOWN_CAP["count"] += 1
+            if DOWN_CAP["after"] and DOWN_CAP["count"] > DOWN_CAP["after"]:
+                status = 429
         body = CHUNK[: min(size, len(CHUNK))]
         headers.append((b"server-timing", b"cfSpeedEdge;dur=1, cfSpeedWorker;dur=1"))
     elif path in ("/__up", "/empty.php"):
@@ -71,6 +78,7 @@ def local_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(cloudflare, "BASE", "http://fake")
     monkeypatch.setattr(cloudflare, "UPLOAD_BYTES", 256 * 1024)
     FLAKY.update(mode="none", count=0)
+    DOWN_CAP.update(after=0, count=0)
     yield
 
 
@@ -190,10 +198,30 @@ async def test_single_refused_ping_does_not_end_the_test(monkeypatch: pytest.Mon
 
 def test_when_a_transfer_is_unreliable() -> None:
     # Ein Abbruch neben fuenf laufenden Verbindungen: die Messung zaehlt.
-    assert not transfer.unreliable(elapsed=10, duration=10, failed=1, accepted=0, streams=6)
+    assert not transfer.unreliable(elapsed=10, needed=5, failed=1, accepted=0, streams=6)
     # Jede Verbindung ist gescheitert und keine Anfrage kam durch: keine Zahl.
-    assert transfer.unreliable(elapsed=10, duration=10, failed=6, accepted=0, streams=6)
+    assert transfer.unreliable(elapsed=10, needed=5, failed=6, accepted=0, streams=6)
     # Viele Fehler, aber Anfragen kamen durch: die Messung zaehlt.
-    assert not transfer.unreliable(elapsed=10, duration=10, failed=12, accepted=3, streams=6)
+    assert not transfer.unreliable(elapsed=10, needed=5, failed=12, accepted=3, streams=6)
     # Alle haben frueh aufgegeben: aus dem Rest hochgerechnet, keine Zahl.
-    assert transfer.unreliable(elapsed=3, duration=10, failed=0, accepted=5, streams=6)
+    assert transfer.unreliable(elapsed=3, needed=5, failed=0, accepted=5, streams=6)
+
+
+async def test_download_ends_when_the_server_starts_throttling(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Cloudflare deckelt die Menge und antwortet dann mit 429. Die Phase endet, sobald nach
+    # dem Anlauf genug gemessen ist, statt Wartezeit als Messzeit mitzuzaehlen.
+    monkeypatch.setattr(transfer, "MIN_MEASURED", 0.3)
+    DOWN_CAP["after"] = 400
+    reporter, _ = recording_reporter()
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    mbps, received, _loaded = await transfer.download(
+        lambda: "http://fake/__down?bytes=25000000",
+        lambda: "http://fake/__down?bytes=0",
+        reporter,
+        duration=20.0,
+    )
+    assert mbps and mbps > 0 and received > 0
+    # Mit dem Ende bei 429 nach etwa einer halben Sekunde. Ohne es warteten die Verbindungen
+    # fuenfmal je eine Sekunde, bevor sie aufgeben, und die Wartezeit zaehlte als Messzeit.
+    assert loop.time() - started < 3

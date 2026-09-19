@@ -33,6 +33,8 @@ MAX_FAILURES = 5
 #: So viele Laufzeiten muessen mindestens durchkommen, und so viele Versuche duerfen es mehr sein.
 MIN_LATENCY_SAMPLES = 3
 LATENCY_SPARE = 5
+#: So viele Sekunden nach dem Anlauf reichen fuer ein Ergebnis, wenn der Server bremst.
+MIN_MEASURED = 2.0
 CHUNK = 64 * 1024
 #: Zufaellige Daten fuer den Upload, einmal erzeugt. Nullen koennte eine
 #: Zwischenstation komprimieren und damit zu schnell messen.
@@ -104,17 +106,18 @@ async def measure_latency(
     return samples
 
 
-def unreliable(elapsed: float, duration: float, failed: int, accepted: int, streams: int) -> bool:
+def unreliable(elapsed: float, needed: float, failed: int, accepted: int, streams: int) -> bool:
     """Ob eine Uebertragung keine verlaessliche Zahl ergibt.
 
-    Zwei Faelle: Alle Verbindungen haben vor der halben Messzeit aufgegeben (die Zahl waere
-    aus dem Rest hochgerechnet), oder mindestens so viele Anfragen scheiterten, wie es
-    Verbindungen gibt, und keine kam durch. Laufende Anfragen ohne Fehler zaehlen nicht
+    Zwei Faelle: Es wurde kuerzer gemessen als ``needed`` (die halbe Messzeit, oder Anlauf
+    plus zwei Sekunden, wenn der Server bremst; sonst waere die Zahl hochgerechnet), oder
+    mindestens so viele Anfragen scheiterten, wie es Verbindungen gibt, und keine kam
+    durch. Laufende Anfragen ohne Fehler zaehlen nicht
     dagegen: Bei langsamem Upload wird eine 10-MB-Anfrage in der Messzeit womoeglich nie
     fertig, und ein einzelner Abbruch neben fuenf gesunden Verbindungen (am 19.09.2026
     gesehen) macht die Messung nicht wertlos.
     """
-    return elapsed < duration * 0.5 or (failed >= streams and accepted == 0)
+    return elapsed < needed or (failed >= streams and accepted == 0)
 
 
 def describe(exc: BaseException) -> str:
@@ -166,6 +169,9 @@ async def _run_transfer(
     #: Anfragen, die der Server angenommen hat. Beim Upload zaehlen Bytes schon beim
     #: Absenden: Scheitern Anfragen und kommt keine durch, waere die Zahl erfunden.
     accepted: list[int] = []
+    #: Der Server hat mit 429 gebremst. Cloudflare deckelt die Menge je kurzem Zeitfenster
+    #: (am 19.09.2026: nach genau 900 MB). Wer danach weiter misst, zaehlt Wartezeit mit.
+    throttled = asyncio.Event()
 
     async def guarded(http: httpx.AsyncClient, delay: float) -> None:
         # Versetzt starten, wie LibreSpeed: Sonst kaempfen alle Verbindungen
@@ -191,6 +197,8 @@ async def _run_transfer(
                     return
                 # Abgewiesen (403, 429): nicht gleich nachlegen, das haelt die Sperre nur am Leben.
                 refused = isinstance(exc, MeasurementError) and exc.detail.startswith("HTTP 4")
+                if isinstance(exc, MeasurementError) and exc.detail.startswith("HTTP 429"):
+                    throttled.set()
                 await asyncio.sleep(1.0 if refused else 0.2)
 
     async with client(streams) as http:
@@ -203,6 +211,12 @@ async def _run_transfer(
                 reporter.check()
                 if all(task.done() for task in workers):
                     break
+                if throttled.is_set() and meter.elapsed() >= WARMUP + MIN_MEASURED:
+                    break
+            # ⚠️ Jetzt festhalten, nicht nach dem Aufraeumen: Das Warten auf den letzten
+            # Ping unter Last dauert bis zu drei Sekunden und zaehlte sonst als Messzeit.
+            elapsed = meter.elapsed()
+            result = meter.result_mbps()
         finally:
             stop.set()
             for task in workers:
@@ -213,9 +227,9 @@ async def _run_transfer(
         raise MeasurementError("unreachable", f"{phase}: {summarize_errors(errors) if errors else 'no data'}")
     if errors:
         logger.info("%s: %s requests failed and were repeated (%s)", phase, len(errors), summarize_errors(errors))
-    if unreliable(meter.elapsed(), duration, len(errors), len(accepted), streams):
+    needed = WARMUP + MIN_MEASURED if throttled.is_set() else duration * 0.5
+    if unreliable(elapsed, needed, len(errors), len(accepted), streams):
         raise MeasurementError("unstable", f"{phase}: {summarize_errors(errors)}")
-    result = meter.result_mbps()
     if result is not None:
         reporter.value(phase, result, force=True)
     loaded_samples = loaded[0] if loaded and isinstance(loaded[0], list) else []
