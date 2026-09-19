@@ -1,0 +1,22 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Runtime data: database, secret key, downloaded tools. Never part of the repository.
+data/
+data-*/
+nothing/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+
+# Local settings with secrets
+.env
+.env.*
+!.env.example

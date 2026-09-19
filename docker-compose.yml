@@ -1,0 +1,43 @@
+# nexpulse, start with:  docker compose up -d
+#
+# Then open http://<your-host>:8440. There is no account and, by default, no
+# password. Set one under Settings > Access and API if nexpulse can be reached
+# from outside your network.
+#
+# To build from source instead of pulling the image, comment out `image:` and
+# uncomment `build: .`.
+
+services:
+  nexpulse:
+    image: ghcr.io/derkezorm/nexpulse:latest
+    # build: .
+    container_name: nexpulse
+    restart: unless-stopped
+
+    ports:
+      # Host port on the left, container port on the right.
+      - "8440:8000"
+
+    volumes:
+      # ⚠️ A local disk, never an SMB or NFS share. SQLite's locking does not
+      # work reliably over network filesystems, and that is how it loses data.
+      - ./data:/data
+
+    environment:
+      # Who should own the files in the data directory. The container fixes the
+      # permissions itself on startup.
+      PUID: 1000
+      PGID: 1000
+
+      # Schedules run at the wall clock time of this zone, unless you pick
+      # another one in the settings.
+      TZ: Europe/Berlin
+
+      # The key that signs sessions and encrypts stored notification tokens.
+      # Leaving it empty is fine: nexpulse creates one on first start and keeps
+      # it as /data/secret.key.
+      NEXPULSE_SECRET_KEY: ${NEXPULSE_SECRET_KEY:-}
+
+      # Whether the session cookie may only travel over HTTPS (only matters
+      # with a password): auto, on or off.
+      NEXPULSE_COOKIE_SECURE: ${NEXPULSE_COOKIE_SECURE:-auto}
