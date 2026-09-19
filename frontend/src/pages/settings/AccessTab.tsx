@@ -12,6 +12,7 @@ import { dateTime, relative } from '../../lib/format'
 import { useLoad } from '../../lib/useLoad'
 
 const ENDPOINTS = [
+  ['GET', '/api/v1/me', 'read'],
   ['GET', '/api/v1/status', 'read'],
   ['GET', '/api/v1/latest', 'read'],
   ['GET', '/api/v1/results?from=…&to=…', 'read'],

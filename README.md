@@ -94,11 +94,12 @@ or as `Authorization: Bearer`.
 
 | Method | Path | Access |
 |---|---|---|
+| GET | `/api/v1/me` | read (any key: name, access, whether it may start tests) |
 | GET | `/api/v1/status` | read |
 | GET | `/api/v1/latest` | read |
 | GET | `/api/v1/results?from=…&to=…&source=…` | read |
 | GET | `/api/v1/stats?range=24h\|7d\|30d\|90d\|all` | read |
-| POST | `/api/v1/tests` | run |
+| POST | `/api/v1/tests` with `{"source": "cloudflare"}` (or `librespeed`, `ookla`) | run |
 | GET | `/api/v1/tests/{id}` | read |
 
 The full reference is at `/api/docs` on your instance.

@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel, Field
 
 from .. import __version__
 from ..deps import DbSession, ReadKey, RunKey
@@ -18,11 +19,29 @@ from ..meldungen import fehler
 from ..models import Result
 from ..services import history
 from ..services.runner import result_dict, runner
-from .tests import StartIn, start_test
+from .tests import start_test
 
 router = APIRouter(prefix="/api/v1", tags=["api v1"])
 
 MAX_RESULTS = 5000
+
+
+class StartV1(BaseModel):
+    """Die Quelle ist hier Pflicht.
+
+    ⚠️ Mit einem Standardwert startete ``{}`` stillschweigend eine Cloudflare-Messung. Wer
+    nur wissen wollte, ob sein Schluessel starten darf, und dazu einen leeren Koerper
+    schickte, loeste damit bei jedem Versuch einen echten Test aus. Fuer diese Frage gibt
+    es ``GET /api/v1/me``.
+    """
+
+    source: str = Field(max_length=16)
+    server_id: str | None = Field(default=None, max_length=80)
+
+
+@router.get("/me", summary="What this API key is allowed to do")
+def me(key: ReadKey) -> dict[str, Any]:
+    return {"name": key.name, "scope": key.scope, "can_run_tests": key.scope == "run", "version": __version__}
 
 
 @router.get("/status", summary="Version, whether a test is running, and the latest result")
@@ -67,7 +86,7 @@ def stats(
 
 
 @router.post("/tests", status_code=202, summary="Start a test (needs a key with run access)")
-async def start(payload: StartIn, _key: RunKey, db: DbSession) -> dict[str, Any]:
+async def start(payload: StartV1, _key: RunKey, db: DbSession) -> dict[str, Any]:
     return start_test(db, payload.source, payload.server_id, "api")
 
 

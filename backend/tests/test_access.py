@@ -106,3 +106,24 @@ def test_key_does_not_open_the_interface(client: TestClient) -> None:
     client.put("/api/auth/password", json={"password": "correct-horse-1"}, headers=UI)
     stranger = TestClient(client.app)
     assert stranger.get("/api/settings", headers={"X-Api-Key": key}).status_code == 401
+
+
+def test_me_tells_what_a_key_may_do(client: TestClient) -> None:
+    read = client.post("/api/keys", json={"name": "nexdeck", "scope": "read"}, headers=UI).json()["key"]
+    run = client.post("/api/keys", json={"name": "ha", "scope": "run"}, headers=UI).json()["key"]
+    assert client.get("/api/v1/me", headers={"X-Api-Key": read}).json() == {
+        "name": "nexdeck",
+        "scope": "read",
+        "can_run_tests": False,
+        "version": client.get("/api/health").json()["version"],
+    }
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {run}"}).json()["can_run_tests"] is True
+    assert client.get("/api/v1/me").status_code == 401
+
+
+def test_empty_body_never_starts_a_test(client: TestClient, fake_engine: object) -> None:
+    # Frueher galt Cloudflare als Standard, und {} startete eine echte Messung.
+    run = client.post("/api/keys", json={"name": "ha", "scope": "run"}, headers=UI).json()["key"]
+    response = client.post("/api/v1/tests", json={}, headers={"X-Api-Key": run})
+    assert response.status_code == 422
+    assert client.get("/api/tests/live").json()["running"] is False
