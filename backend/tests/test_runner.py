@@ -185,3 +185,13 @@ def test_interrupted_tests_are_marked_after_restart(client: TestClient) -> None:
     scheduler.mark_interrupted()
     assert results()[0].status == "failed"
     assert results()[0].error_code == "interrupted"
+
+
+def test_random_schedule_gets_a_seed_and_keeps_it(client: TestClient) -> None:
+    body = {"name": "Random", "mode": "random", "per_day": 6}
+    created = client.post("/api/schedules", json=body, headers=UI).json()
+    assert created["seed"] > 0
+    assert created["next_run_at"] is not None
+    updated = client.put(f"/api/schedules/{created['id']}", json={**body, "name": "Renamed"}, headers=UI).json()
+    assert updated["seed"] == created["seed"]
+    assert updated["next_run_at"] == created["next_run_at"]

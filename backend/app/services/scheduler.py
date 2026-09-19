@@ -31,6 +31,8 @@ def plan_of(schedule: Schedule) -> timing.Plan:
         days=schedule.days,
         window_from=schedule.window_from,
         window_to=schedule.window_to,
+        per_day=schedule.per_day or 6,
+        seed=schedule.seed or 0,
     )
 
 

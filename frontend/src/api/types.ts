@@ -83,10 +83,12 @@ export type Schedule = {
   id: number
   name: string
   enabled: boolean
-  mode: 'interval' | 'daily' | 'cron'
+  mode: 'interval' | 'daily' | 'cron' | 'random'
   interval_minutes: number
   daily_time: string
   cron: string
+  per_day: number
+  seed: number
   days: number
   window_from: string
   window_to: string

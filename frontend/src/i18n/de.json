@@ -18,8 +18,14 @@
     "schedule": "Zeitplan",
     "settings": "Einstellungen"
   },
-  "language": { "label": "Sprache" },
-  "theme": { "label": "Darstellung", "dark": "Dunkel", "light": "Hell" },
+  "language": {
+    "label": "Sprache"
+  },
+  "theme": {
+    "label": "Darstellung",
+    "dark": "Dunkel",
+    "light": "Hell"
+  },
   "auth": {
     "title": "Anmelden",
     "password": "Passwort",
@@ -36,7 +42,11 @@
     "loaded": "Laufzeit unter Last",
     "loadedDown": "Ping beim Download"
   },
-  "trigger": { "manual": "von Hand", "schedule": "geplant", "api": "API" },
+  "trigger": {
+    "manual": "von Hand",
+    "schedule": "geplant",
+    "api": "API"
+  },
   "live": {
     "title": "Live",
     "lead": "Starte einen Test oder sieh einem geplanten beim Messen zu.",
@@ -44,7 +54,7 @@
     "source": "Quelle",
     "server": "Server",
     "nearest": "Nächster (automatisch)",
-    "cloudflareAuto": "Nächstes Cloudflare-Rechenzentrum",
+    "cloudflareAuto": "Nächstes Rechenzentrum",
     "start": "Test starten",
     "cancel": "Test abbrechen",
     "saved": "Test gespeichert",
@@ -75,7 +85,12 @@
     "title": "Verlauf",
     "lead": "Jeder Test, aufbewahrt für {{days}} Tage.",
     "range": "Zeitraum",
-    "ranges": { "24h": "24 Std.", "7d": "7 Tage", "30d": "30 Tage", "90d": "90 Tage" },
+    "ranges": {
+      "24h": "24 Std.",
+      "7d": "7 Tage",
+      "30d": "30 Tage",
+      "90d": "90 Tage"
+    },
     "source": "Quelle",
     "allSources": "Alle Quellen",
     "avgDown": "Download im Schnitt",
@@ -88,7 +103,11 @@
     "failedCount_other": "{{count}} Tests gescheitert",
     "ofPlan": "{{pct}} % deines Tarifs",
     "metric": "Messwert",
-    "metrics": { "speed": "Tempo", "ping": "Ping und Jitter", "loss": "Paketverlust" },
+    "metrics": {
+      "speed": "Tempo",
+      "ping": "Ping und Jitter",
+      "loss": "Paketverlust"
+    },
     "chartLabel": "Testergebnisse im zeitlichen Verlauf",
     "planLine": "{{name}} · Tarif {{value}}",
     "emptyTitle": "Keine Ergebnisse in diesem Zeitraum",
@@ -164,13 +183,31 @@
     "saved": "Zeitplan gespeichert",
     "delete": "Zeitplan löschen",
     "deleteConfirm": "Wirklich löschen",
-    "deleted": "Zeitplan gelöscht"
+    "deleted": "Zeitplan gelöscht",
+    "randomTimes": "Mehrmals am Tag zu zufälligen Zeiten",
+    "perDay": "Tests pro Tag",
+    "perDayHint": "nexpulse teilt den Tag (oder das Zeitfenster) in so viele gleiche Abschnitte und misst in jedem einmal zu einer zufälligen Minute. Die Zeiten wechseln jeden Tag, nach ein paar Wochen ist so jede Stunde abgedeckt.",
+    "randomPerDay_one": "einmal am Tag zu zufälliger Zeit",
+    "randomPerDay_other": "{{count}}-mal am Tag zu zufälligen Zeiten"
   },
-  "days": { "mon": "Mo", "tue": "Di", "wed": "Mi", "thu": "Do", "fri": "Fr", "sat": "Sa", "sun": "So" },
+  "days": {
+    "mon": "Mo",
+    "tue": "Di",
+    "wed": "Mi",
+    "thu": "Do",
+    "fri": "Fr",
+    "sat": "Sa",
+    "sun": "So"
+  },
   "settings": {
     "title": "Einstellungen",
     "lead": "Quellen, Zugang, dein Tarif und Warnungen.",
-    "tabs": { "sources": "Quellen", "access": "Zugang und API", "plan": "Tarif und Warnungen", "data": "Daten" }
+    "tabs": {
+      "sources": "Quellen",
+      "access": "Zugang und API",
+      "plan": "Tarif und Warnungen",
+      "data": "Daten"
+    }
   },
   "sources": {
     "default": "Standard",
@@ -242,7 +279,10 @@
     "keyName": "Name",
     "keyNameRequired": "Gib dem Schlüssel einen Namen.",
     "keyScope": "Zugriff",
-    "scope": { "read": "Lesen", "run": "Lesen und Tests starten" },
+    "scope": {
+      "read": "Lesen",
+      "run": "Lesen und Tests starten"
+    },
     "scopeHint": {
       "read": "Letztes Ergebnis, Verlauf und Durchschnitte. Reicht für ein Dashboard.",
       "run": "Darf auch Tests starten, etwa aus einer Automation."
@@ -281,13 +321,21 @@
     "notifyKind": "Senden an",
     "notifyNone": "Nirgendwohin",
     "webhook": "Webhook (JSON)",
-    "url": { "ntfy": "Adresse des Themas", "gotify": "Gotify-Adresse", "webhook": "Webhook-Adresse" },
+    "url": {
+      "ntfy": "Adresse des Themas",
+      "gotify": "Gotify-Adresse",
+      "webhook": "Webhook-Adresse"
+    },
     "urlPlaceholder": {
       "ntfy": "https://ntfy.example.com/nexpulse",
       "gotify": "https://gotify.example.com",
       "webhook": "https://example.com/hooks/nexpulse"
     },
-    "token": { "ntfy": "Zugangstoken", "gotify": "Anwendungstoken", "webhook": "Bearer-Token" },
+    "token": {
+      "ntfy": "Zugangstoken",
+      "gotify": "Anwendungstoken",
+      "webhook": "Bearer-Token"
+    },
     "optional": "optional",
     "keepHint": "Leer lassen, um die gespeicherte Adresse zu behalten.",
     "urlRequired": "Gib die Adresse ein.",

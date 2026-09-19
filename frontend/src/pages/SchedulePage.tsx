@@ -21,6 +21,8 @@ const EMPTY: ScheduleInput = {
   interval_minutes: 120,
   daily_time: '04:00',
   cron: '0 */3 * * *',
+  per_day: 6,
+  seed: 0,
   days: 127,
   window_from: '00:00',
   window_to: '00:00',
@@ -71,7 +73,7 @@ export default function SchedulePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">{schedule.name}</p>
                     <Badge>{t(`sources.${schedule.source}.name`)}</Badge>
-                    {schedule.random_offset && <Badge>{t('schedule.offsetBadge')}</Badge>}
+                    {schedule.random_offset && schedule.mode !== 'random' && <Badge>{t('schedule.offsetBadge')}</Badge>}
                     {sources.data && !sources.data.sources[schedule.source].enabled && <Badge tone="bad">{t('schedule.sourceOff')}</Badge>}
                   </div>
                   <p className="mt-1.5 text-sm text-mist-500">{describe(schedule, t)}</p>
@@ -120,6 +122,7 @@ function describe(schedule: Schedule, t: (key: string, options?: Record<string, 
   const parts: string[] = []
   if (schedule.mode === 'interval') parts.push(everyText(schedule.interval_minutes, t))
   else if (schedule.mode === 'daily') parts.push(t('schedule.dailyAt', { time: schedule.daily_time }))
+  else if (schedule.mode === 'random') parts.push(t('schedule.randomPerDay', { count: schedule.per_day }))
   else parts.push(`cron ${schedule.cron}`)
   if (schedule.mode !== 'cron') {
     if (schedule.window_from !== schedule.window_to) parts.push(t('schedule.between', { from: schedule.window_from, to: schedule.window_to }))
@@ -146,7 +149,9 @@ function ScheduleDialog({
   const { t } = useTranslation()
   const notify = useNotice()
   const [form, setForm] = useState<ScheduleInput>(() => {
-    if (!schedule) return EMPTY
+    // Der Startwert fuer die ausgelosten Zeiten entsteht schon hier, damit die Vorschau vor
+    // dem Speichern dieselben Zeiten zeigt, zu denen spaeter wirklich gemessen wird.
+    if (!schedule) return { ...EMPTY, seed: Math.floor(Math.random() * 2_147_483_000) + 1 }
     const { id: _id, next_run_at: _next, last_run_at: _last, ...input } = schedule
     return input
   })
@@ -182,11 +187,13 @@ function ScheduleDialog({
   }, [form.source, sources])
 
   const custom = form.mode === 'interval' && !INTERVALS.includes(form.interval_minutes)
-  const frequency = form.mode === 'cron' ? 'cron' : form.mode === 'daily' ? 'daily' : custom ? 'custom' : String(form.interval_minutes)
+  const frequency =
+    form.mode === 'cron' ? 'cron' : form.mode === 'daily' ? 'daily' : form.mode === 'random' ? 'random' : custom ? 'custom' : String(form.interval_minutes)
 
   function setFrequency(value: string) {
     if (value === 'cron') set('mode', 'cron')
     else if (value === 'daily') set('mode', 'daily')
+    else if (value === 'random') set('mode', 'random')
     else if (value === 'custom') setForm((current) => ({ ...current, mode: 'interval', interval_minutes: 90 }))
     else setForm((current) => ({ ...current, mode: 'interval', interval_minutes: Number(value) }))
   }
@@ -271,6 +278,7 @@ function ScheduleDialog({
           </option>
         ))}
         <option value="custom">{t('schedule.customInterval')}</option>
+        <option value="random">{t('schedule.randomTimes')}</option>
         <option value="daily">{t('schedule.onceADay')}</option>
         <option value="cron">{t('schedule.cron')}</option>
       </SelectField>
@@ -284,12 +292,23 @@ function ScheduleDialog({
           onChange={(event) => set('interval_minutes', Math.max(5, Number(event.target.value) || 5))}
         />
       )}
+      {form.mode === 'random' && (
+        <Field
+          label={t('schedule.perDay')}
+          type="number"
+          min={1}
+          max={48}
+          value={form.per_day}
+          hint={t('schedule.perDayHint')}
+          onChange={(event) => set('per_day', Math.min(48, Math.max(1, Number(event.target.value) || 1)))}
+        />
+      )}
       {form.mode === 'daily' && <Field label={t('schedule.time')} type="time" value={form.daily_time} onChange={(event) => set('daily_time', event.target.value)} />}
       {form.mode === 'cron' ? (
         <Field label={t('schedule.cronExpression')} className="font-mono" value={form.cron} hint={t('schedule.cronHint')} onChange={(event) => set('cron', event.target.value)} />
       ) : (
         <>
-          {form.mode === 'interval' && (
+          {(form.mode === 'interval' || form.mode === 'random') && (
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-medium text-mist-300">{t('schedule.window')}</p>
               <div className="flex items-center gap-2">
@@ -354,7 +373,9 @@ function ScheduleDialog({
           )}
         </SelectField>
       </div>
-      <Switch label={t('schedule.offset')} hint={t('schedule.offsetHint')} checked={form.random_offset} onChange={(value) => set('random_offset', value)} />
+      {form.mode !== 'random' && (
+        <Switch label={t('schedule.offset')} hint={t('schedule.offsetHint')} checked={form.random_offset} onChange={(value) => set('random_offset', value)} />
+      )}
       {error ? (
         <Banner tone="bad">{error}</Banner>
       ) : (

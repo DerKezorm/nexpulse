@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.services.timing import Cron, CronError, Plan, next_local, next_run, upcoming
+from app.services.timing import Cron, CronError, Plan, next_local, next_run, random_slots, upcoming
 
 BERLIN = ZoneInfo("Europe/Berlin")
 
@@ -91,3 +91,35 @@ def test_cron_rejects_nonsense(expression: str) -> None:
 def test_upcoming_lists_five() -> None:
     runs = upcoming(Plan(mode="interval", interval_minutes=360), datetime(2026, 9, 19, 7, 0, tzinfo=UTC), BERLIN)
     assert [run.astimezone(BERLIN).hour for run in runs] == [12, 18, 0, 6, 12]
+
+
+def test_random_times_cover_the_whole_day() -> None:
+    plan = Plan(mode="random", per_day=6, seed=42)
+    slots = random_slots(plan, local("2026-09-19 00:00"))
+    assert len(slots) == 6
+    # Je ein Test in jedem Vierstundenblock: nichts ballt sich, der Abend fehlt nie.
+    assert [slot // 240 for slot in slots] == [0, 1, 2, 3, 4, 5]
+
+
+def test_random_times_change_daily_but_stay_fixed_for_a_day() -> None:
+    plan = Plan(mode="random", per_day=6, seed=42)
+    monday = random_slots(plan, local("2026-09-21 00:00"))
+    assert monday == random_slots(plan, local("2026-09-21 00:00"))
+    assert monday != random_slots(plan, local("2026-09-22 00:00"))
+    assert monday != random_slots(Plan(mode="random", per_day=6, seed=7), local("2026-09-21 00:00"))
+
+
+def test_random_times_respect_window_and_days() -> None:
+    plan = Plan(mode="random", per_day=4, seed=1, window_from="18:00", window_to="23:00", days=0b0011111)
+    for slot in random_slots(plan, local("2026-09-21 00:00")):
+        assert 18 * 60 <= slot <= 23 * 60
+    # Samstag 19.09.2026 ist ausgenommen, der naechste Lauf liegt am Montag.
+    first = next_local(plan, local("2026-09-19 12:00"))
+    assert first is not None and first.date().isoformat() == "2026-09-21"
+
+
+def test_preview_and_run_agree_for_random_times() -> None:
+    plan = Plan(mode="random", per_day=8, seed=99)
+    now = datetime(2026, 9, 19, 6, 0, tzinfo=UTC)
+    preview = upcoming(plan, now, BERLIN, count=3)
+    assert next_run(plan, now, BERLIN, random_offset=True) == preview[0]

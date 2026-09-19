@@ -9,10 +9,8 @@ const SYMBOLS = {
   live: [{ d: 'M4 17a8 8 0 1 1 16 0' }, { d: 'M12 17l4-5' }],
   history: [{ d: 'M3.5 20h17' }, { d: 'M5 16l4-5 4 3 6-8' }],
   schedule: [{ d: 'M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z' }, { d: 'M12 7.5V12l3 2' }],
-  settings: [
-    { d: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z' },
-    { d: 'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1' },
-  ],
+  // Schieberegler wie in nexcrate. Das Zahnrad davor sah aus wie eine Sonne und verwechselte sich mit dem Hell-Umschalter.
+  settings: [{ d: 'M4 7h9M17 7h3M4 17h3M11 17h9' }, { d: 'M15 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM9 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z' }],
   globe: [
     { d: 'M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z' },
     { d: 'M3.5 12h17' },

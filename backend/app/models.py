@@ -48,11 +48,15 @@ class Schedule(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(80))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    #: interval, daily oder cron
+    #: interval, daily, cron oder random
     mode: Mapped[str] = mapped_column(String(16), default="interval")
     interval_minutes: Mapped[int] = mapped_column(Integer, default=120)
     daily_time: Mapped[str] = mapped_column(String(5), default="04:00")
     cron: Mapped[str] = mapped_column(String(120), default="")
+    #: Bei ``random``: so viele Tests am Tag zu zufaelligen Zeiten.
+    per_day: Mapped[int] = mapped_column(Integer, default=6)
+    #: Startwert fuer die ausgelosten Zeiten, siehe ``timing.random_slots``.
+    seed: Mapped[int] = mapped_column(Integer, default=0)
     #: Wochentage als Bitmaske, Montag ist Bit 0. 127 heisst jeden Tag.
     days: Mapped[int] = mapped_column(Integer, default=127)
     #: Zeitfenster "HH:MM". Gleiche Werte heissen: kein Fenster.

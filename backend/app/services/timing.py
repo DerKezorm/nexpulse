@@ -10,8 +10,14 @@ Drei Arten:
   heisst 00:00, 02:00, 04:00 und nicht "2 Stunden nach dem Speichern".
 - ``daily``: einmal am Tag zur angegebenen Uhrzeit.
 - ``cron``: fuenf Felder wie in crontab (Minute, Stunde, Tag, Monat, Wochentag).
+- ``random``: n Tests am Tag zu zufaelligen Zeiten. Der Tag (oder das Zeitfenster) wird in
+  n gleiche Abschnitte geteilt, in jedem liegt ein Test zu einer zufaelligen Minute. Rein
+  zufaellige Zeiten koennten sich ballen und die Abendstunden auslassen; so ist jeder Tag
+  anders und trotzdem ganz abgedeckt. Die Zeiten eines Tages werden aus Zeitplan und Datum
+  ausgelost und bleiben fest, damit Vorschau und Lauf dasselbe sagen. Zweck: Engpaesse zu
+  bestimmten Tageszeiten sichtbar machen, ohne dass immer zur selben Minute gemessen wird.
 
-Wochentage und Zeitfenster gelten fuer ``interval`` und ``daily``. Bei ``cron``
+Wochentage und Zeitfenster gelten fuer ``interval``, ``daily`` und ``random``. Bei ``cron``
 steht beides schon im Ausdruck.
 """
 
@@ -130,6 +136,30 @@ class Plan:
     days: int = 127
     window_from: str = "00:00"
     window_to: str = "00:00"
+    per_day: int = 6
+    #: Macht die ausgelosten Zeiten je Zeitplan verschieden. Legt die Oberflaeche beim
+    #: Anlegen fest, damit die Vorschau schon vor dem Speichern die echten Zeiten zeigt.
+    seed: int = 0
+
+
+def _window_minutes(plan: Plan) -> list[int]:
+    """Alle Minuten des Tages im Zeitfenster, in zeitlicher Reihenfolge ab dessen Beginn."""
+    start, end = parse_hhmm(plan.window_from), parse_hhmm(plan.window_to)
+    if start == end:
+        return list(range(24 * 60))
+    if start < end:
+        return list(range(start, end + 1))
+    return list(range(start, 24 * 60)) + list(range(end + 1))
+
+
+def random_slots(plan: Plan, day: datetime) -> list[int]:
+    """Die ausgelosten Minuten eines Tages, sortiert. Gleicher Plan und Tag, gleiche Zeiten."""
+    minutes = _window_minutes(plan)
+    count = max(1, min(int(plan.per_day), len(minutes)))
+    rng = random.Random(f"{plan.seed}:{day.date().isoformat()}:{count}:{plan.window_from}-{plan.window_to}")
+    size = len(minutes) / count
+    picked = {minutes[int(index * size + rng.random() * size)] for index in range(count)}
+    return sorted(picked)
 
 
 def _in_window(minute_of_day: int, window_from: str, window_to: str) -> bool:
@@ -145,6 +175,8 @@ def _in_window(minute_of_day: int, window_from: str, window_to: str) -> bool:
 def _slots_of_day(plan: Plan) -> list[int]:
     if plan.mode == "daily":
         return [parse_hhmm(plan.daily_time)]
+    if plan.mode == "random":
+        raise ValueError("random slots depend on the day")
     step = max(5, int(plan.interval_minutes))
     return list(range(0, 24 * 60, step))
 
@@ -154,12 +186,18 @@ def next_local(plan: Plan, after: datetime) -> datetime | None:
     after = after.replace(second=0, microsecond=0)
     if plan.mode == "cron":
         return Cron.parse(plan.cron).next_after(after)
-    slots = [slot for slot in _slots_of_day(plan) if _in_window(slot, plan.window_from, plan.window_to)]
-    if not slots or not plan.days & 127:
+    if not plan.days & 127:
         return None
+    if plan.mode != "random":
+        fixed = [slot for slot in _slots_of_day(plan) if _in_window(slot, plan.window_from, plan.window_to)]
+        if not fixed:
+            return None
     day = after.replace(hour=0, minute=0)
     for _ in range(8):
         if plan.days & (1 << day.weekday()):
+            # Ein Zeitfenster ueber Mitternacht gehoert beim Auslosen zum Kalendertag: Die
+            # Minuten nach Mitternacht zaehlen zum Tag, an dem sie liegen.
+            slots = random_slots(plan, day) if plan.mode == "random" else fixed
             for slot in slots:
                 # Wanduhrzeit setzen statt Minuten addieren: Ueber eine Zeitumstellung
                 # hinweg waere "Mitternacht plus 240 Minuten" sonst 03:00 oder 05:00.
@@ -179,7 +217,7 @@ def next_run(
     if target is None:
         return None
     moment = target.replace(tzinfo=tz).astimezone(UTC)
-    if random_offset:
+    if random_offset and plan.mode != "random":
         offset = (rng or random).uniform(-300, 300)
         moment = max(moment + timedelta(seconds=offset), now + timedelta(seconds=30))
     return moment

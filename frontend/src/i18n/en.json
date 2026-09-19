@@ -18,8 +18,14 @@
     "schedule": "Schedule",
     "settings": "Settings"
   },
-  "language": { "label": "Language" },
-  "theme": { "label": "Theme", "dark": "Dark", "light": "Light" },
+  "language": {
+    "label": "Language"
+  },
+  "theme": {
+    "label": "Theme",
+    "dark": "Dark",
+    "light": "Light"
+  },
   "auth": {
     "title": "Sign in",
     "password": "Password",
@@ -36,7 +42,11 @@
     "loaded": "Latency under load",
     "loadedDown": "Ping during download"
   },
-  "trigger": { "manual": "manual", "schedule": "scheduled", "api": "API" },
+  "trigger": {
+    "manual": "manual",
+    "schedule": "scheduled",
+    "api": "API"
+  },
   "live": {
     "title": "Live",
     "lead": "Run a test now or watch a scheduled one as it happens.",
@@ -44,7 +54,7 @@
     "source": "Source",
     "server": "Server",
     "nearest": "Nearest (automatic)",
-    "cloudflareAuto": "Nearest Cloudflare data center",
+    "cloudflareAuto": "Nearest data center",
     "start": "Start test",
     "cancel": "Cancel test",
     "saved": "Test saved",
@@ -75,7 +85,12 @@
     "title": "History",
     "lead": "Every test, kept for {{days}} days.",
     "range": "Range",
-    "ranges": { "24h": "24 h", "7d": "7 days", "30d": "30 days", "90d": "90 days" },
+    "ranges": {
+      "24h": "24 h",
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days"
+    },
     "source": "Source",
     "allSources": "All sources",
     "avgDown": "Average download",
@@ -88,7 +103,11 @@
     "failedCount_other": "{{count}} tests failed",
     "ofPlan": "{{pct}} % of your plan",
     "metric": "Metric",
-    "metrics": { "speed": "Speed", "ping": "Ping and jitter", "loss": "Packet loss" },
+    "metrics": {
+      "speed": "Speed",
+      "ping": "Ping and jitter",
+      "loss": "Packet loss"
+    },
     "chartLabel": "Test results over time",
     "planLine": "{{name}} · plan {{value}}",
     "emptyTitle": "No results in this range",
@@ -164,13 +183,31 @@
     "saved": "Schedule saved",
     "delete": "Delete schedule",
     "deleteConfirm": "Really delete",
-    "deleted": "Schedule deleted"
+    "deleted": "Schedule deleted",
+    "randomTimes": "Several times a day, at random times",
+    "perDay": "Tests per day",
+    "perDayHint": "nexpulse splits the day (or the time window) into this many equal parts and tests once at a random minute in each. The times change every day, so over a few weeks every hour gets covered.",
+    "randomPerDay_one": "once a day at a random time",
+    "randomPerDay_other": "{{count}} times a day at random times"
   },
-  "days": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" },
+  "days": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
+  },
   "settings": {
     "title": "Settings",
     "lead": "Sources, access, your plan and alerts.",
-    "tabs": { "sources": "Sources", "access": "Access and API", "plan": "Plan and alerts", "data": "Data" }
+    "tabs": {
+      "sources": "Sources",
+      "access": "Access and API",
+      "plan": "Plan and alerts",
+      "data": "Data"
+    }
   },
   "sources": {
     "default": "default",
@@ -242,7 +279,10 @@
     "keyName": "Name",
     "keyNameRequired": "Give the key a name.",
     "keyScope": "Access",
-    "scope": { "read": "Read", "run": "Read and run tests" },
+    "scope": {
+      "read": "Read",
+      "run": "Read and run tests"
+    },
     "scopeHint": {
       "read": "Latest result, history and averages. Enough for a dashboard.",
       "run": "Can also start tests, for example from an automation."
@@ -281,13 +321,21 @@
     "notifyKind": "Send to",
     "notifyNone": "Nowhere",
     "webhook": "Webhook (JSON)",
-    "url": { "ntfy": "Topic address", "gotify": "Gotify address", "webhook": "Webhook address" },
+    "url": {
+      "ntfy": "Topic address",
+      "gotify": "Gotify address",
+      "webhook": "Webhook address"
+    },
     "urlPlaceholder": {
       "ntfy": "https://ntfy.example.com/nexpulse",
       "gotify": "https://gotify.example.com",
       "webhook": "https://example.com/hooks/nexpulse"
     },
-    "token": { "ntfy": "Access token", "gotify": "Application token", "webhook": "Bearer token" },
+    "token": {
+      "ntfy": "Access token",
+      "gotify": "Application token",
+      "webhook": "Bearer token"
+    },
     "optional": "optional",
     "keepHint": "Leave empty to keep the saved address.",
     "urlRequired": "Enter the address.",

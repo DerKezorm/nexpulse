@@ -106,89 +106,97 @@ export default function LivePage() {
         }
       />
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start">
-        <Card className="text-center">
-          <div className="relative mx-auto max-w-[460px]">
-            <Gauge value={shown} upload={upload} max={planDown} />
-            <div className="absolute inset-x-0 top-[43%] text-center">
-              <p className="text-5xl font-bold tracking-tighter tabular-nums sm:text-6xl">{speed(shown)}</p>
-              <p className="mt-1 text-sm text-mist-500">Mbit/s</p>
-              <p className="mt-2 inline-flex min-h-5 items-center gap-1.5 text-sm text-mist-500" aria-live="polite">
-                {live.running && live.phase === 'download' && <Symbol name="down" className="h-3.5 w-3.5 text-accent-500" />}
-                {live.running && live.phase === 'upload' && <Symbol name="up" className="h-3.5 w-3.5 text-up-400" />}
-                {live.running ? t(`live.phase.${live.phase}`) : live.phase === 'done' ? t('live.phase.done') : t('live.phase.idle')}
-              </p>
+        <Card className="p-5 sm:p-6">
+          {/* Tacho links, die drei Werte daneben: So passt die Messung ohne Scrollen auf den Schirm. */}
+          <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_10.5rem] sm:gap-4">
+            <div className="relative mx-auto w-full max-w-[270px] text-center sm:max-w-[340px]">
+              <Gauge value={shown} upload={upload} max={planDown} />
+              <div className="absolute inset-x-0 top-[41%] text-center">
+                <p className="text-4xl font-bold tracking-tighter tabular-nums sm:text-5xl">{speed(shown)}</p>
+                <p className="mt-0.5 text-sm text-mist-500">Mbit/s</p>
+                <p className="mt-1.5 inline-flex min-h-5 items-center gap-1.5 text-xs text-mist-500 sm:text-sm" aria-live="polite">
+                  {live.running && live.phase === 'download' && <Symbol name="down" className="h-3.5 w-3.5 text-accent-500" />}
+                  {live.running && live.phase === 'upload' && <Symbol name="up" className="h-3.5 w-3.5 text-up-400" />}
+                  {live.running ? t(`live.phase.${live.phase}`) : live.phase === 'done' ? t('live.phase.done') : t('live.phase.idle')}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-1 sm:gap-3">
+              <PhaseTile label={t('metrics.ping')} value={ms(live.running || live.phase === 'done' ? live.ping : latest.data?.ping_ms)} unit="ms" active={live.running && live.phase === 'ping'} />
+              <PhaseTile
+                label={t('metrics.download')}
+                value={speed(live.running || live.phase === 'done' ? live.download : latest.data?.download_mbps)}
+                unit="Mbit/s"
+                active={live.running && live.phase === 'download'}
+                symbol="down"
+              />
+              <PhaseTile
+                label={t('metrics.upload')}
+                value={speed(live.running || live.phase === 'done' ? live.upload : latest.data?.upload_mbps)}
+                unit="Mbit/s"
+                active={live.running && live.phase === 'upload'}
+                symbol="up"
+                upload
+              />
             </div>
           </div>
+          {live.samples.length > 1 && (
+            <div className="mt-2">
+              <Sparkline samples={live.samples} />
+            </div>
+          )}
 
-          <div className="my-4 grid grid-cols-3 gap-2 text-left sm:gap-3">
-            <PhaseTile label={t('metrics.ping')} value={ms(live.running || live.phase === 'done' ? live.ping : latest.data?.ping_ms)} unit="ms" active={live.running && live.phase === 'ping'} />
-            <PhaseTile
-              label={t('metrics.download')}
-              value={speed(live.running || live.phase === 'done' ? live.download : latest.data?.download_mbps)}
-              unit="Mbit/s"
-              active={live.running && live.phase === 'download'}
-              symbol="down"
-            />
-            <PhaseTile
-              label={t('metrics.upload')}
-              value={speed(live.running || live.phase === 'done' ? live.upload : latest.data?.upload_mbps)}
-              unit="Mbit/s"
-              active={live.running && live.phase === 'upload'}
-              symbol="up"
-              upload
-            />
-          </div>
-          <Sparkline samples={live.samples} />
-
-          <div className="mt-4 grid gap-3 text-left sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-mist-300">{t('live.source')}</span>
-              <select className={SELECT_CLASS} value={source} disabled={live.running} onChange={(event) => setSource(event.target.value as Source)}>
-                {enabled.map((name) => (
-                  <option key={name} value={name}>
-                    {t(`sources.${name}.name`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-mist-300">{t('live.server')}</span>
-              <select
-                className={SELECT_CLASS}
-                value={serverId}
-                disabled={live.running || source === 'cloudflare' || serversLoading}
-                onChange={(event) => setServerId(event.target.value)}
-              >
-                <option value={AUTO}>{source === 'cloudflare' ? t('live.cloudflareAuto') : t('live.nearest')}</option>
-                {servers.map((server) => (
-                  <option key={server.id} value={server.id}>
-                    {server.sponsor && server.sponsor !== server.name ? `${server.sponsor} · ` : ''}
-                    {server.name}
-                    {server.location && !server.name.includes(server.location) ? ` · ${server.location}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] xl:items-end">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] xl:contents">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium text-mist-300">{t('live.source')}</span>
+                <select className={SELECT_CLASS} value={source} disabled={live.running} onChange={(event) => setSource(event.target.value as Source)}>
+                  {enabled.map((name) => (
+                    <option key={name} value={name}>
+                      {t(`sources.${name}.name`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium text-mist-300">{t('live.server')}</span>
+                <select
+                  className={SELECT_CLASS}
+                  value={serverId}
+                  disabled={live.running || source === 'cloudflare' || serversLoading}
+                  onChange={(event) => setServerId(event.target.value)}
+                >
+                  <option value={AUTO}>{source === 'cloudflare' ? t('live.cloudflareAuto') : t('live.nearest')}</option>
+                  {servers.map((server) => (
+                    <option key={server.id} value={server.id}>
+                      {server.sponsor && server.sponsor !== server.name ? `${server.sponsor} · ` : ''}
+                      {server.name}
+                      {server.location && !server.name.includes(server.location) ? ` · ${server.location}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {live.running ? (
+              <Button variant="ghost" className="py-3" onClick={() => void cancel()}>
+                {t('live.cancel')}
+              </Button>
+            ) : (
+              <Button className="py-3" loading={starting} disabled={!enabled.length} onClick={() => void start()}>
+                <Symbol name="play" />
+                {t('live.start')}
+              </Button>
+            )}
           </div>
           {failure && (
-            <div className="mt-4 text-left">
+            <div className="mt-4">
               <Banner tone="bad">{failure}</Banner>
             </div>
           )}
           {!connected && (
-            <div className="mt-4 text-left">
+            <div className="mt-4">
               <Banner>{t('live.reconnecting')}</Banner>
             </div>
-          )}
-          {live.running ? (
-            <Button variant="ghost" className="mt-4 w-full py-3" onClick={() => void cancel()}>
-              {t('live.cancel')}
-            </Button>
-          ) : (
-            <Button className="mt-4 w-full py-3 text-base" loading={starting} disabled={!enabled.length} onClick={() => void start()}>
-              <Symbol name="play" />
-              {t('live.start')}
-            </Button>
           )}
         </Card>
 
@@ -222,7 +230,7 @@ function PhaseTile({
         {symbol && <Symbol name={symbol} className={'h-3 w-3 ' + (upload ? 'text-up-400' : 'text-accent-500')} />}
         {label}
       </p>
-      <p className="text-lg font-bold tabular-nums sm:text-xl">
+      <p className="text-lg font-bold tabular-nums sm:text-2xl">
         {value}
         <span className="ml-1 block text-xs font-normal text-mist-500 sm:inline">{unit}</span>
       </p>
