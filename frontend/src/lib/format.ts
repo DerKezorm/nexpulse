@@ -1,9 +1,16 @@
 /** Zahlen und Zeiten fuer die Anzeige, in der Sprache der Oberflaeche. */
 
-import i18n from '../i18n'
+import i18n, { type Language } from '../i18n'
+
+const LOCALES: Record<Language, string> = {
+  de: 'de-DE',
+  en: 'en-GB',
+  'zh-Hans': 'zh-CN',
+  'zh-Hant': 'zh-TW',
+}
 
 function locale(): string {
-  return i18n.language === 'de' ? 'de-DE' : 'en-GB'
+  return LOCALES[i18n.language as Language] ?? 'en-GB'
 }
 
 /** Mbit/s: ab 100 ohne Nachkomma, darunter eine Stelle. */

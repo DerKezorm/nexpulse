@@ -5,7 +5,14 @@ import { useTranslation } from 'react-i18next'
 import { changeLanguage, SUPPORTED_LANGUAGES, type Language } from '../i18n'
 import { applyTheme, storedTheme, type Theme } from '../lib/theme'
 
-/** Deutsch/Englisch. Die Wahl bleibt im Browser, Konten gibt es nicht. */
+const LANGUAGE_LABELS: Record<Language, string> = {
+  de: 'DE',
+  en: 'EN',
+  'zh-Hans': '简体',
+  'zh-Hant': '繁體',
+}
+
+/** Die Wahl bleibt im Browser, Konten gibt es nicht. */
 export function LanguageSwitcher() {
   const { t, i18n } = useTranslation()
   return (
@@ -17,14 +24,15 @@ export function LanguageSwitcher() {
             key={language}
             type="button"
             lang={language}
+            aria-label={language === 'zh-Hans' ? '简体中文' : language === 'zh-Hant' ? '繁體中文' : language === 'de' ? 'Deutsch' : 'English'}
             onClick={() => void changeLanguage(language)}
             aria-pressed={active}
             className={
-              'rounded-full px-2.5 py-1 text-xs font-semibold uppercase transition-colors ' +
+              'rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ' +
               (active ? 'bg-accent-500 text-on-accent' : 'text-mist-500 hover:text-mist-100')
             }
           >
-            {language}
+            {LANGUAGE_LABELS[language]}
           </button>
         )
       })}
