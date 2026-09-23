@@ -38,6 +38,8 @@ describe('translation keys used in the code', () => {
       ...['read', 'run'].flatMap((scope) => [`access.scope.${scope}`, `access.scopeHint.${scope}`]),
       ...['ntfy', 'gotify', 'webhook'].flatMap((kind) => [`plan.url.${kind}`, `plan.urlPlaceholder.${kind}`, `plan.token.${kind}`]),
       ...['license', 'terms', 'privacy'].map((link) => `sources.ookla.${link}`),
+      ...['both', 'down', 'up'].map((direction) => `sources.iperf3.direction.${direction}`),
+      ...['auto', 'ipv4', 'ipv6'].map((family) => `sources.iperf3.family.${family}`),
       ...['cloudflare', 'librespeed', 'ookla', 'iperf3'].map((provider) => `about.provider.${provider}`),
       ...['site', 'source', 'privacy', 'servers', 'license', 'terms'].map((link) => `about.links.${link}`),
     ]

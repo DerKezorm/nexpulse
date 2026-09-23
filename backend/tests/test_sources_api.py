@@ -18,11 +18,11 @@ def iperf3_there(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(iperf3, "available", lambda: True)
 
 
-def answering(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int]]:
-    asked: list[tuple[str, int]] = []
+def answering(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int, str]]:
+    asked: list[tuple[str, int, str]] = []
 
-    async def check(host: str, port: int) -> None:
-        asked.append((host, port))
+    async def check(host: str, port: int, family: str = "auto") -> None:
+        asked.append((host, port, family))
 
     monkeypatch.setattr(iperf3, "check", check)
     return asked
@@ -34,7 +34,7 @@ def test_a_target_is_asked_before_it_is_saved(client: TestClient, monkeypatch: p
         "/api/sources/iperf3/servers", json={"name": "VPS", "host": "vps.example.com", "port": 5202}, headers=UI
     )
     assert response.status_code == 201
-    assert asked == [("vps.example.com", 5202)]
+    assert asked == [("vps.example.com", 5202, "auto")]
     [server] = response.json()["iperf3"]["servers"]
     assert (server["host"], server["port"]) == ("vps.example.com", 5202)
 
@@ -43,7 +43,7 @@ def test_a_target_is_asked_before_it_is_saved(client: TestClient, monkeypatch: p
 
 
 def test_a_target_that_does_not_answer_is_not_saved(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    async def check(_host: str, _port: int) -> None:
+    async def check(_host: str, _port: int, _family: str = "auto") -> None:
         raise iperf3.MeasurementError("iperf3_failed", "connection refused")
 
     monkeypatch.setattr(iperf3, "check", check)
@@ -79,6 +79,44 @@ def test_removing_a_target_forgets_it_as_a_favorite(client: TestClient, monkeypa
     assert saved.json()["iperf3"]["favorites"] == [server_id]
     gone = client.delete(f"/api/sources/iperf3/servers/{server_id}", headers=UI)
     assert gone.json()["iperf3"]["favorites"] == []
+
+
+def test_the_options_of_a_target_are_saved_and_can_change(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = answering(monkeypatch)
+    created = client.post(
+        "/api/sources/iperf3/servers",
+        json={"name": "VPS", "host": "vps.example.com", "directions": "down", "streams": 1, "family": "ipv6"},
+        headers=UI,
+    )
+    assert created.status_code == 201
+    [server] = created.json()["iperf3"]["servers"]
+    assert (server["directions"], server["streams"], server["family"]) == ("down", 1, "ipv6")
+    # Die Probe beim Eintragen muss dieselbe IP-Fassung nehmen, sonst faellt es erst beim ersten Test auf.
+    assert asked == [("vps.example.com", 5201, "ipv6")]
+
+    changed = client.put(
+        f"/api/sources/iperf3/servers/{server['id']}",
+        json={"name": "VPS neu", "directions": "both", "streams": 8, "family": "auto"},
+        headers=UI,
+    )
+    [after] = changed.json()["iperf3"]["servers"]
+    assert (after["name"], after["directions"], after["streams"], after["family"]) == ("VPS neu", "both", 8, "auto")
+    # Die Kennung haengt an Adresse und Port und bleibt, sonst verliert ein Zeitplan sein Ziel.
+    assert after["id"] == server["id"]
+    assert (after["host"], after["port"]) == ("vps.example.com", 5201)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [{"streams": 0}, {"streams": 99}, {"directions": "sideways"}, {"family": "ipv5"}],
+)
+def test_options_outside_the_choices_are_refused(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, options: dict[str, Any]
+) -> None:
+    asked = answering(monkeypatch)
+    body = {"name": "VPS", "host": "vps.example.com", **options}
+    assert client.post("/api/sources/iperf3/servers", json=body, headers=UI).status_code == 422
+    assert asked == []
 
 
 def test_iperf3_stays_off_without_the_program(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

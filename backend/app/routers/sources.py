@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 from fastapi import APIRouter
@@ -33,8 +33,24 @@ class OwnServerIn(BaseModel):
     url: str = Field(min_length=4, max_length=255)
 
 
-class TargetIn(BaseModel):
+class TargetOptions(BaseModel):
     name: str = Field(min_length=1, max_length=80)
+    #: both, down oder up
+    directions: Literal["both", "down", "up"] = "both"
+    streams: int = Field(default=iperf3.STREAMS, ge=1, le=iperf3.MAX_STREAMS)
+    #: auto, ipv4 oder ipv6
+    family: Literal["auto", "ipv4", "ipv6"] = "auto"
+
+    def stored(self) -> dict[str, Any]:
+        return {
+            "name": self.name.strip(),
+            "directions": self.directions,
+            "streams": self.streams,
+            "family": self.family,
+        }
+
+
+class TargetIn(TargetOptions):
     host: str = Field(min_length=1, max_length=255)
     port: int = Field(default=iperf3.DEFAULT_PORT, ge=1, le=65535)
 
@@ -64,7 +80,15 @@ def state(db: Any) -> dict[str, Any]:
             "available": iperf3.available(),
             "port": iperf3.DEFAULT_PORT,
             "servers": [
-                {"id": target.id, "name": target.name, "host": target.host, "port": target.port}
+                {
+                    "id": target.id,
+                    "name": target.name,
+                    "host": target.host,
+                    "port": target.port,
+                    "directions": target.directions,
+                    "streams": target.streams,
+                    "family": target.family,
+                }
                 for target in iperf3.parse_targets(settings["iperf3_servers"])
             ],
             "favorites": settings["iperf3_favorites"],
@@ -133,12 +157,29 @@ async def add_target(payload: TargetIn, db: DbSession) -> dict[str, Any]:
     if any(iperf3.target_id(item["host"], item["port"]) == iperf3.target_id(host, payload.port) for item in existing):
         raise fehler("server_exists", "This server is already in the list.", 409)
     try:
-        await iperf3.check(host, payload.port)
+        await iperf3.check(host, payload.port, payload.family)
     except MeasurementError as exc:
         raise fehler("iperf3_not_found", "No iperf3 server answered at this address.", 422, reason=exc.detail) from exc
-    settings_service.save(
-        db, {"iperf3_servers": [*existing, {"name": payload.name.strip(), "host": host, "port": payload.port}]}
-    )
+    saved = {**payload.stored(), "host": host, "port": payload.port}
+    settings_service.save(db, {"iperf3_servers": [*existing, saved]})
+    return state(db)
+
+
+@router.put("/iperf3/servers/{server_id}", summary="Change name and options of an iperf3 server")
+def change_target(server_id: str, payload: TargetOptions, db: DbSession) -> dict[str, Any]:
+    # Adresse und Port bleiben: Sie bilden die Kennung, an der Favoriten und Zeitplaene haengen.
+    servers = settings_service.load(db)["iperf3_servers"]
+    found = False
+    changed = []
+    for item in servers:
+        if iperf3.target_id(item["host"], item["port"]) == server_id:
+            found = True
+            changed.append({**item, **payload.stored()})
+        else:
+            changed.append(item)
+    if not found:
+        raise fehler("not_found", "This no longer exists.", 404)
+    settings_service.save(db, {"iperf3_servers": changed})
     return state(db)
 
 

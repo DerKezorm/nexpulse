@@ -1,12 +1,13 @@
+import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, errorMessage } from '../../api/client'
-import type { ServerOption, Source, SourcesState } from '../../api/types'
+import type { Iperf3Options, Iperf3Server, ServerOption, Source, SourcesState } from '../../api/types'
 import { Dialog } from '../../components/Dialog'
 import { useNotice } from '../../components/Notice'
 import { Symbol } from '../../components/Symbol'
-import { Badge, Banner, Button, Card, Field, PageLoading, Switch } from '../../components/ui'
+import { Badge, Banner, Button, Card, Field, PageLoading, SelectField, Switch } from '../../components/ui'
 import { dateTime } from '../../lib/format'
 import { useLoad } from '../../lib/useLoad'
 
@@ -284,15 +285,16 @@ function OwnServers({ state, onChange }: { state: SourcesState; onChange: (next:
   )
 }
 
-/** Die eigenen iperf3-Ziele. Ein Verzeichnis gibt es nicht, hier steht alles, was es gibt. */
+/** Die eigenen iperf3-Ziele, jedes mit seinen Wahlmoeglichkeiten. */
 function Targets({ state, onChange }: { state: SourcesState; onChange: (next: SourcesState) => void }) {
   const { t } = useTranslation()
   const notify = useNotice()
-  const [name, setName] = useState('')
   const [host, setHost] = useState('')
   const [port, setPort] = useState(String(state.iperf3.port))
+  const [fresh, setFresh] = useState<Iperf3Options>(DEFAULT_OPTIONS)
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
 
   async function add() {
     if (!host.trim()) {
@@ -303,19 +305,30 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
     try {
       onChange(
         await api.post<SourcesState>('/api/sources/iperf3/servers', {
-          name: name.trim() || host.trim(),
+          ...fresh,
+          name: fresh.name.trim() || host.trim(),
           host: host.trim(),
           port: Number(port) || state.iperf3.port,
         }),
       )
-      setName('')
       setHost('')
       setPort(String(state.iperf3.port))
+      setFresh(DEFAULT_OPTIONS)
       notify(t('sources.iperf3.added'))
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
       setAdding(false)
+    }
+  }
+
+  async function save(id: string, options: Iperf3Options) {
+    try {
+      onChange(await api.put<SourcesState>(`/api/sources/iperf3/servers/${id}`, options))
+      setEditing(null)
+      notify(t('sources.iperf3.saved'))
+    } catch (caught) {
+      notify(errorMessage(caught))
     }
   }
 
@@ -331,21 +344,38 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
     <div className="flex flex-col gap-2 border-t border-ink-700 pt-3">
       <p className="font-medium text-mist-200">{t('sources.iperf3.own')}</p>
       {state.iperf3.servers.length === 0 && <p className="text-xs">{t('sources.iperf3.ownNone')}</p>}
-      {state.iperf3.servers.map((server) => (
-        <div key={server.id} className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-mist-300">
-            {server.name}{' '}
-            <span className="text-mist-600">
-              · {server.host}:{server.port}
+      {state.iperf3.servers.map((server) =>
+        editing === server.id ? (
+          <EditTarget
+            key={server.id}
+            server={server}
+            onSave={(options) => void save(server.id, options)}
+            onCancel={() => setEditing(null)}
+          />
+        ) : (
+          <div key={server.id} className="flex items-start justify-between gap-3">
+            <span className="min-w-0 text-mist-300">
+              {server.name} <span className="text-mist-600">&middot; {server.host}:{server.port}</span>
+              <span className="block text-xs text-mist-600">{summary(t, server)}</span>
             </span>
-          </span>
-          <Button variant="link" size="sm" onClick={() => void remove(server.id)}>
-            {t('common.remove')}
-          </Button>
-        </div>
-      ))}
+            <span className="flex shrink-0 gap-3">
+              <Button variant="link" size="sm" onClick={() => setEditing(server.id)}>
+                {t('common.edit')}
+              </Button>
+              <Button variant="link" size="sm" onClick={() => void remove(server.id)}>
+                {t('common.remove')}
+              </Button>
+            </span>
+          </div>
+        ),
+      )}
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_5.5rem_auto] sm:items-end">
-        <Field label={t('sources.iperf3.serverName')} value={name} placeholder="VPS" onChange={(event) => setName(event.target.value)} />
+        <Field
+          label={t('sources.iperf3.serverName')}
+          value={fresh.name}
+          placeholder="VPS"
+          onChange={(event) => setFresh({ ...fresh, name: event.target.value })}
+        />
         <Field
           label={t('sources.iperf3.serverHost')}
           value={host}
@@ -366,9 +396,109 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
           {t('common.add')}
         </Button>
       </div>
+      <details>
+        <summary className="cursor-pointer text-xs text-mist-400">{t('sources.iperf3.options')}</summary>
+        <p className="mt-1 text-xs">{t('sources.iperf3.optionsHint')}</p>
+        <OptionFields options={fresh} onChange={setFresh} />
+      </details>
       {adding && <p className="text-xs">{t('sources.iperf3.checking')}</p>}
       {/* Ein stehender Hinweis, kein Fehler: tone="bad" waere rot und wuerde als Alarm vorgelesen. */}
       <Banner>{t('sources.iperf3.warning')}</Banner>
+    </div>
+  )
+}
+
+const DEFAULT_OPTIONS: Iperf3Options = { name: '', directions: 'both', streams: 4, family: 'auto' }
+const DIRECTIONS = ['both', 'down', 'up'] as const
+const FAMILIES = ['auto', 'ipv4', 'ipv6'] as const
+const STREAM_CHOICES = [1, 2, 4, 8, 16, 32]
+
+/** "Nur Download, 1 Verbindung, IPv6". Die IP-Fassung nur, wenn sie festgelegt ist. */
+function summary(t: TFunction, server: Iperf3Server): string {
+  const parts = [
+    t(`sources.iperf3.direction.${server.directions}`),
+    t('sources.iperf3.streamsCount', { count: server.streams }),
+  ]
+  if (server.family !== 'auto') parts.push(t(`sources.iperf3.family.${server.family}`))
+  return parts.join(' · ')
+}
+
+function OptionFields({ options, onChange }: { options: Iperf3Options; onChange: (options: Iperf3Options) => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="mt-2 grid gap-2 sm:grid-cols-3">
+      <SelectField
+        label={t('sources.iperf3.directions')}
+        value={options.directions}
+        onChange={(value) => onChange({ ...options, directions: value as Iperf3Options['directions'] })}
+      >
+        {DIRECTIONS.map((direction) => (
+          <option key={direction} value={direction}>
+            {t(`sources.iperf3.direction.${direction}`)}
+          </option>
+        ))}
+      </SelectField>
+      <SelectField
+        label={t('sources.iperf3.streams')}
+        value={String(options.streams)}
+        onChange={(value) => onChange({ ...options, streams: Number(value) })}
+      >
+        {STREAM_CHOICES.map((count) => (
+          <option key={count} value={count}>
+            {count}
+          </option>
+        ))}
+      </SelectField>
+      <SelectField
+        label={t('sources.iperf3.familyLabel')}
+        value={options.family}
+        onChange={(value) => onChange({ ...options, family: value as Iperf3Options['family'] })}
+      >
+        {FAMILIES.map((family) => (
+          <option key={family} value={family}>
+            {t(`sources.iperf3.family.${family}`)}
+          </option>
+        ))}
+      </SelectField>
+    </div>
+  )
+}
+
+function EditTarget({
+  server,
+  onSave,
+  onCancel,
+}: {
+  server: Iperf3Server
+  onSave: (options: Iperf3Options) => void
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  const [options, setOptions] = useState<Iperf3Options>({
+    name: server.name,
+    directions: server.directions,
+    streams: server.streams,
+    family: server.family,
+  })
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-ink-800/60 p-3">
+      <p className="text-xs text-mist-600">
+        {server.host}:{server.port}
+      </p>
+      <Field
+        label={t('sources.iperf3.serverName')}
+        value={options.name}
+        onChange={(event) => setOptions({ ...options, name: event.target.value })}
+      />
+      <OptionFields options={options} onChange={setOptions} />
+      <div className="flex gap-2">
+        <Button size="sm" onClick={() => onSave({ ...options, name: options.name.trim() || server.host })}>
+          {t('common.save')}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
+      </div>
     </div>
   )
 }

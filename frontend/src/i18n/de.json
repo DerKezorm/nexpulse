@@ -261,7 +261,7 @@
     },
     "iperf3": {
       "name": "iperf3",
-      "text": "Misst gegen einen iperf3-Server, den du selbst betreibst, etwa auf einem VPS. Keine öffentlichen Server, kein Dritter: nexpulse spricht nur mit der Adresse, die du einträgst. Gemessen wird eine Richtung nach der anderen, das dauert gut zwanzig Sekunden. Paketverlust bleibt leer, dafür bräuchte es UDP.",
+      "text": "Misst gegen einen iperf3-Server, den du selbst betreibst, etwa auf einem VPS. Keine öffentlichen Server, kein Dritter: nexpulse spricht nur mit der Adresse, die du einträgst. Je Server wählst du Richtungen, Verbindungen und IP-Fassung. Paketverlust bleibt leer, dafür bräuchte es UDP.",
       "site": "software.es.net/iperf",
       "source": "Quelltext",
       "unavailable": "Das Programm iperf3 fehlt. Im nexpulse-Container ist es dabei; betreibst du nexpulse anders, installiere das Paket iperf3.",
@@ -273,7 +273,25 @@
       "serverPort": "Port",
       "hostRequired": "Gib die Adresse des Servers ein.",
       "checking": "Fragt den Server ...",
-      "added": "Server hinzugefügt"
+      "added": "Server hinzugefügt",
+      "options": "Optionen",
+      "optionsHint": "Gelten für das Ziel, das du gerade hinzufügst. Später kannst du sie je Server ändern.",
+      "directions": "Richtungen",
+      "direction": {
+        "both": "Download und Upload",
+        "down": "Nur Download",
+        "up": "Nur Upload"
+      },
+      "streams": "Verbindungen",
+      "streamsCount_one": "{{count}} Verbindung",
+      "streamsCount_other": "{{count}} Verbindungen",
+      "familyLabel": "IP-Fassung",
+      "family": {
+        "auto": "Automatisch",
+        "ipv4": "IPv4",
+        "ipv6": "IPv6"
+      },
+      "saved": "Server geändert"
     }
   },
   "access": {

@@ -131,6 +131,58 @@ def test_a_busy_server_is_its_own_error() -> None:
     assert iperf3.error_code(str(REFUSED["data"])) == "iperf3_failed"
 
 
+def test_arguments_carry_the_choices_of_the_target() -> None:
+    # Wunsch aus Issue #1: eine Verbindung, nur Download, feste IP-Fassung.
+    target = iperf3.Target(id="t", name="VPS", host="vps.example.com", port=5201, streams=1, family="ipv6")
+    args = iperf3.arguments(target, reverse=True)
+    assert args[args.index("-P") + 1] == "1"
+    assert "-6" in args and "-4" not in args
+    assert "-4" in iperf3.arguments(
+        iperf3.Target(id="t", name="VPS", host="vps.example.com", port=5201, family="ipv4"), reverse=False
+    )
+    # Ohne Wahl mischt sich nexpulse nicht ein.
+    plain = iperf3.arguments(iperf3.Target(id="t", name="VPS", host="vps.example.com", port=5201), reverse=False)
+    assert "-4" not in plain and "-6" not in plain
+    assert plain[plain.index("-P") + 1] == str(iperf3.STREAMS)
+
+
+def test_choices_from_an_older_installation_get_the_defaults() -> None:
+    # Ziele von vor 0.3.0 haben die Felder nicht, und Unsinn darf nicht in die Befehlszeile.
+    [plain, nonsense] = iperf3.parse_targets(
+        [
+            {"name": "Alt", "host": "vps.example.com"},
+            {"name": "Krumm", "host": "b.example.com", "directions": "sideways", "streams": 999, "family": "ipv5"},
+        ]
+    )
+    assert (plain.directions, plain.streams, plain.family) == ("both", iperf3.STREAMS, "auto")
+    assert (nonsense.directions, nonsense.family) == ("both", "auto")
+    assert nonsense.streams == iperf3.MAX_STREAMS
+
+
+async def test_only_the_wanted_direction_is_measured(monkeypatch: pytest.MonkeyPatch) -> None:
+    runs: list[bool] = []
+
+    async def run(target: iperf3.Target, reverse: bool, phase: str, reporter=None, duration: int = 10) -> dict:
+        runs.append(reverse)
+        return END["data"]
+
+    monkeypatch.setattr(iperf3, "run", run)
+    monkeypatch.setattr(iperf3, "ping_samples", _three_pings)
+    engine = iperf3.Iperf3Engine()
+    target = iperf3.Target(id="t", name="VPS", host="vps.example.com", port=5201, directions="down")
+    monkeypatch.setattr(iperf3, "targets", lambda: [target])
+    monkeypatch.setattr(iperf3, "available", lambda: True)
+    result = await engine.measure("t", reporter([]))
+    assert runs == [True]
+    assert result.download_mbps is not None
+    # Wer nur den Download misst, bekommt keinen erfundenen Upload.
+    assert result.upload_mbps is None and result.bytes_up is None and result.loaded_up_ms is None
+
+
+async def _three_pings(target: iperf3.Target, reporter=None, count: int = 3) -> list[float]:
+    return [11.0, 12.0, 11.5]
+
+
 def test_arguments_carry_the_direction_and_the_warmup() -> None:
     target = iperf3.Target(id="t", name="VPS", host="vps.example.com", port=5202)
     download = iperf3.arguments(target, reverse=True)

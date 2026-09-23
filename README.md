@@ -45,15 +45,19 @@ The screenshots show a throwaway instance with made-up data.
 | Cloudflare | automatic (nearest data center) | no | The same endpoints as speed.cloudflare.com. Cloudflare refuses tests that come too often; one an hour is plenty. |
 | LibreSpeed | automatic, a public server or your own | no | Automatic pings all servers, tries the nearest ones briefly and takes the fastest. |
 | Ookla | automatic or any nearby server | yes | Not included. See below. |
-| iperf3 | your own servers only | no | For a VPS or a second site: what the line between you and that machine really does. See below. |
+| iperf3 | your own servers only | no | For a VPS or a second site: what the line between you and that machine really does. Directions, connections and IP version per server. See below. |
 
 ### About iperf3
 
 iperf3 measures against a machine you run yourself, so there is no server list:
 start `iperf3 -s` on the target, then add its address under Settings > Sources.
-nexpulse measures one direction after the other, which takes about twenty
-seconds, and reports download, upload, ping and latency under load. Packet loss
-stays empty; over TCP there is none to report.
+By default nexpulse measures one direction after the other, which takes about
+twenty seconds, and reports download, upload, ping and latency under load.
+Packet loss stays empty; over TCP there is none to report.
+
+Every server carries its own settings, and you can change them later: which
+directions to measure (both, download only, upload only), how many parallel
+connections (1 to 32), and whether to force IPv4 or IPv6.
 
 **An iperf3 server lets anyone who knows its address and port run a test
 against it**, and use up its bandwidth. Open the port to your own network only,

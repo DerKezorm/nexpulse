@@ -261,7 +261,7 @@
     },
     "iperf3": {
       "name": "iperf3",
-      "text": "Measures against an iperf3 server you run yourself, for example on a VPS. No public servers and no third party: nexpulse only talks to the address you enter. It measures one direction after the other, which takes a good twenty seconds. Packet loss stays empty, that would need UDP.",
+      "text": "Measures against an iperf3 server you run yourself, for example on a VPS. No public servers and no third party: nexpulse only talks to the address you enter. Directions, connections and IP version are yours to choose per server. Packet loss stays empty, that would need UDP.",
       "site": "software.es.net/iperf",
       "source": "Source code",
       "unavailable": "iperf3 is not installed here. The nexpulse container brings it along; if you run nexpulse another way, install the iperf3 package.",
@@ -273,7 +273,25 @@
       "serverPort": "Port",
       "hostRequired": "Enter the address of the server.",
       "checking": "Asking the server ...",
-      "added": "Server added"
+      "added": "Server added",
+      "options": "Options",
+      "optionsHint": "They apply to the server you are adding. You can change them per server afterwards.",
+      "directions": "Directions",
+      "direction": {
+        "both": "Download and upload",
+        "down": "Download only",
+        "up": "Upload only"
+      },
+      "streams": "Connections",
+      "streamsCount_one": "{{count}} connection",
+      "streamsCount_other": "{{count}} connections",
+      "familyLabel": "IP version",
+      "family": {
+        "auto": "Automatic",
+        "ipv4": "IPv4",
+        "ipv6": "IPv6"
+      },
+      "saved": "Server changed"
     }
   },
   "access": {

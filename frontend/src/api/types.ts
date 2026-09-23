@@ -104,6 +104,15 @@ export type ScheduleInput = Omit<Schedule, 'id' | 'next_run_at' | 'last_run_at'>
 
 export type ServerOption = { id: string; name: string; location: string; sponsor: string; host: string }
 
+export type Iperf3Options = {
+  name: string
+  directions: 'both' | 'down' | 'up'
+  streams: number
+  family: 'auto' | 'ipv4' | 'ipv6'
+}
+
+export type Iperf3Server = Iperf3Options & { id: string; host: string; port: number }
+
 export type SourcesState = {
   sources: Record<Source, { enabled: boolean; switched_on: boolean }>
   ookla: { accepted_at: string | null; installed: boolean; version: string; favorites: string[] }
@@ -115,7 +124,7 @@ export type SourcesState = {
   iperf3: {
     available: boolean
     port: number
-    servers: { id: string; name: string; host: string; port: number }[]
+    servers: Iperf3Server[]
     favorites: string[]
   }
 }

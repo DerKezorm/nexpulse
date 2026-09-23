@@ -7,8 +7,10 @@ geben, der Betreiber traegt Adresse und Port selbst ein.
 
 ``--json-stream`` gibt eine JSON-Zeile je Ereignis aus (``start``,
 ``interval``, ``end``, ``error``), wie Ooklas ``-f jsonl``. Bandbreiten sind
-**Bits je Sekunde**. Gemessen wird zweimal: einmal rueckwaerts (``-R``, das ist
-der Download) und einmal vorwaerts (Upload).
+**Bits je Sekunde**. Gemessen wird ueblicherweise zweimal: einmal rueckwaerts
+(``-R``, das ist der Download) und einmal vorwaerts (Upload). Je Ziel laesst
+sich einstellen, welche Richtungen, mit wie vielen Verbindungen und ueber
+welche IP-Fassung gemessen wird (Wunsch aus Issue #1, 23.09.2026).
 
 Was iperf3 ueber TCP nicht liefert: Paketverlust, Anbieter und aeussere
 Adresse. Die Laufzeit unter Last kommt aus den TCP-Werten des Senders und gibt
@@ -47,6 +49,11 @@ DURATION = 10
 OMIT = 1
 #: Eine einzelne Verbindung fuellt eine schnelle Leitung mit Laufzeit nicht aus.
 STREAMS = 4
+MAX_STREAMS = 32
+#: Welche Richtungen ein Ziel misst. Wer nur wissen will, was ankommt, spart die Haelfte der Zeit.
+DIRECTIONS = ("both", "down", "up")
+#: IP-Fassung erzwingen. Ein Name mit A- und AAAA-Eintrag laesst iperf3 sonst selbst waehlen.
+FAMILIES = {"auto": [], "ipv4": ["-4"], "ipv6": ["-6"]}
 CONNECT_TIMEOUT_MS = 5000
 PING_SAMPLES = 10
 PING_TIMEOUT = 3.0
@@ -70,22 +77,47 @@ class Target:
     name: str
     host: str
     port: int
+    #: both, down oder up
+    directions: str = "both"
+    streams: int = STREAMS
+    #: auto, ipv4 oder ipv6
+    family: str = "auto"
 
     def info(self) -> ServerInfo:
         return ServerInfo(id=self.id, name=self.name, location="own server", host=f"{self.host}:{self.port}")
 
+    def measures(self, direction: str) -> bool:
+        return self.directions in ("both", direction)
+
+
+def _int(value: Any, default: int, low: int, high: int) -> int:
+    try:
+        return min(max(int(value), low), high)
+    except (TypeError, ValueError):
+        return default
+
 
 def parse_targets(items: list[dict[str, Any]]) -> list[Target]:
+    """Aus den Einstellungen. Ziele von vor 0.3.0 haben die Wahlmoeglichkeiten nicht und bekommen die Vorgaben."""
     targets = []
     for item in items:
         host = str(item.get("host") or "")
         if not host:
             continue
-        try:
-            port = int(item.get("port") or DEFAULT_PORT)
-        except (TypeError, ValueError):
-            port = DEFAULT_PORT
-        targets.append(Target(id=target_id(host, port), name=str(item.get("name") or host), host=host, port=port))
+        port = _int(item.get("port"), DEFAULT_PORT, 1, 65535)
+        directions = str(item.get("directions") or "both")
+        family = str(item.get("family") or "auto")
+        targets.append(
+            Target(
+                id=target_id(host, port),
+                name=str(item.get("name") or host),
+                host=host,
+                port=port,
+                directions=directions if directions in DIRECTIONS else "both",
+                streams=_int(item.get("streams"), STREAMS, 1, MAX_STREAMS),
+                family=family if family in FAMILIES else "auto",
+            )
+        )
     return targets
 
 
@@ -170,7 +202,7 @@ def error_code(message: str) -> str:
     return "iperf3_busy" if "busy" in message.lower() else "iperf3_failed"
 
 
-def arguments(target: Target, reverse: bool, duration: int = DURATION, streams: int = STREAMS) -> list[str]:
+def arguments(target: Target, reverse: bool, duration: int = DURATION, streams: int | None = None) -> list[str]:
     args = [
         "-c",
         target.host,
@@ -179,12 +211,13 @@ def arguments(target: Target, reverse: bool, duration: int = DURATION, streams: 
         "-t",
         str(duration),
         "-P",
-        str(streams),
+        str(target.streams if streams is None else streams),
         "-i",
         "0.5",
         "--connect-timeout",
         str(CONNECT_TIMEOUT_MS),
         "--json-stream",
+        *FAMILIES.get(target.family, []),
     ]
     if duration > OMIT:
         args += ["-O", str(OMIT)]
@@ -261,11 +294,14 @@ async def run(
         return await _stream(args, phase, reporter, timeout)
 
 
-async def check(host: str, port: int) -> None:
-    """Beim Eintragen: steht dort wirklich ein iperf3-Server? Ein Lauf ueber eine Sekunde."""
+async def check(host: str, port: int, family: str = "auto") -> None:
+    """Beim Eintragen: steht dort wirklich ein iperf3-Server? Ein Lauf ueber eine Sekunde.
+
+    Die IP-Fassung zaehlt mit: Wer IPv6 erzwingt, soll es hier merken und nicht erst beim ersten Test.
+    """
     if not available():
         raise MeasurementError("iperf3_not_installed")
-    target = Target(id=target_id(host, port), name=host, host=host, port=port)
+    target = Target(id=target_id(host, port), name=host, host=host, port=port, streams=1, family=family)
     await run(target, reverse=False, phase="check", duration=CHECK_SECONDS)
 
 
@@ -317,14 +353,19 @@ class Iperf3Engine:
         result.ping_high_ms = latency["ping_high_ms"]
         await asyncio.sleep(0.3)
 
-        reporter.phase("download")
-        end = await run(target, reverse=True, phase="download", reporter=reporter)
-        result.download_mbps, result.bytes_down = received(end)
-        await asyncio.sleep(BETWEEN_RUNS)
+        if target.measures("down"):
+            reporter.phase("download")
+            end = await run(target, reverse=True, phase="download", reporter=reporter)
+            result.download_mbps, result.bytes_down = received(end)
 
-        reporter.check()
-        reporter.phase("upload")
-        end = await run(target, reverse=False, phase="upload", reporter=reporter)
-        result.upload_mbps, result.bytes_up = received(end)
-        result.loaded_up_ms = sender_rtt_ms(end)
+        if target.measures("down") and target.measures("up"):
+            # Der Server horcht erst wieder, wenn er den ersten Lauf aufgeraeumt hat.
+            await asyncio.sleep(BETWEEN_RUNS)
+
+        if target.measures("up"):
+            reporter.check()
+            reporter.phase("upload")
+            end = await run(target, reverse=False, phase="upload", reporter=reporter)
+            result.upload_mbps, result.bytes_up = received(end)
+            result.loaded_up_ms = sender_rtt_ms(end)
         return result
