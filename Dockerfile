@@ -33,9 +33,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# curl fuer den Healthcheck, gosu zum Ablegen der Administratorrechte beim Start.
+# curl fuer den Healthcheck, gosu zum Ablegen der Administratorrechte beim Start,
+# iperf3 als Messquelle (BSD-Lizenz von ESnet, rund 700 KB, darf mitgeliefert werden).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl gosu \
+    && apt-get install -y --no-install-recommends curl gosu iperf3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt ./

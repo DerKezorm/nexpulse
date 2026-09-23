@@ -15,8 +15,9 @@ The screenshots show a throwaway instance with made-up data.
 
 - **Live view** with a gauge: ping, download and upload as they happen, whether
   you started the test or a schedule did.
-- **Three sources:** Cloudflare (works right away), LibreSpeed (public servers or
-  your own) and, if you activate it yourself, Ookla. See below.
+- **Four sources:** Cloudflare (works right away), LibreSpeed (public servers or
+  your own), iperf3 against a server of your own, and, if you activate it
+  yourself, Ookla. See below.
 - **Everything measurable:** download, upload, ping, jitter, lowest and highest
   ping, latency under load (bufferbloat), and packet loss where the source
   measures it.
@@ -44,6 +45,22 @@ The screenshots show a throwaway instance with made-up data.
 | Cloudflare | automatic (nearest data center) | no | The same endpoints as speed.cloudflare.com. Cloudflare refuses tests that come too often; one an hour is plenty. |
 | LibreSpeed | automatic, a public server or your own | no | Automatic pings all servers, tries the nearest ones briefly and takes the fastest. |
 | Ookla | automatic or any nearby server | yes | Not included. See below. |
+| iperf3 | your own servers only | no | For a VPS or a second site: what the line between you and that machine really does. See below. |
+
+### About iperf3
+
+iperf3 measures against a machine you run yourself, so there is no server list:
+start `iperf3 -s` on the target, then add its address under Settings > Sources.
+nexpulse measures one direction after the other, which takes about twenty
+seconds, and reports download, upload, ping and latency under load. Packet loss
+stays empty; over TCP there is none to report.
+
+**An iperf3 server lets anyone who knows its address and port run a test
+against it**, and use up its bandwidth. Open the port to your own network only,
+or to the address nexpulse comes from.
+
+The container ships iperf3 (BSD licensed, by ESnet). If you run nexpulse some
+other way, install the `iperf3` package; without it the source stays off.
 
 ### About Ookla
 
@@ -99,7 +116,7 @@ or as `Authorization: Bearer`.
 | GET | `/api/v1/latest` | read |
 | GET | `/api/v1/results?from=…&to=…&source=…` | read |
 | GET | `/api/v1/stats?range=24h\|7d\|30d\|90d\|all` | read |
-| POST | `/api/v1/tests` with `{"source": "cloudflare"}` (or `librespeed`, `ookla`) | run |
+| POST | `/api/v1/tests` with `{"source": "cloudflare"}` (or `librespeed`, `ookla`, `iperf3`) | run |
 | GET | `/api/v1/tests/{id}` | read |
 
 The full reference is at `/api/docs` on your instance.
@@ -114,5 +131,5 @@ The full reference is at `/api/docs` on your instance.
 
 ## License
 
-[GNU AGPL v3.0](LICENSE). Cloudflare, LibreSpeed, Ookla and Speedtest are names
-of their owners; nexpulse is not affiliated with them.
+[GNU AGPL v3.0](LICENSE). Cloudflare, LibreSpeed, Ookla, Speedtest and iperf are
+names of their owners; nexpulse is not affiliated with them.

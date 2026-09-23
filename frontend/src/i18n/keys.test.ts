@@ -30,7 +30,7 @@ describe('translation keys used in the code', () => {
 
   it('cover the composed keys', () => {
     const composed = [
-      ...['cloudflare', 'librespeed', 'ookla'].map((source) => `sources.${source}.name`),
+      ...['cloudflare', 'librespeed', 'ookla', 'iperf3'].map((source) => `sources.${source}.name`),
       ...['manual', 'schedule', 'api'].map((trigger) => `trigger.${trigger}`),
       ...['starting', 'selecting', 'ping', 'download', 'upload', 'done', 'idle'].map((phase) => `live.phase.${phase}`),
       ...['24h', '7d', '30d', '90d'].map((range) => `history.ranges.${range}`),
@@ -38,7 +38,7 @@ describe('translation keys used in the code', () => {
       ...['read', 'run'].flatMap((scope) => [`access.scope.${scope}`, `access.scopeHint.${scope}`]),
       ...['ntfy', 'gotify', 'webhook'].flatMap((kind) => [`plan.url.${kind}`, `plan.urlPlaceholder.${kind}`, `plan.token.${kind}`]),
       ...['license', 'terms', 'privacy'].map((link) => `sources.ookla.${link}`),
-      ...['cloudflare', 'librespeed', 'ookla'].map((provider) => `about.provider.${provider}`),
+      ...['cloudflare', 'librespeed', 'ookla', 'iperf3'].map((provider) => `about.provider.${provider}`),
       ...['site', 'source', 'privacy', 'servers', 'license', 'terms'].map((link) => `about.links.${link}`),
     ]
     expect(composed.filter((key) => !exists(key))).toEqual([])

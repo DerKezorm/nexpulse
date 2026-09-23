@@ -1,4 +1,4 @@
-"""Messquellen: ein- und ausschalten, Server auflisten, Ookla freischalten, eigene LibreSpeed-Server."""
+"""Messquellen: ein- und ausschalten, Server auflisten, Ookla freischalten, eigene LibreSpeed- und iperf3-Server."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from ..deps import DbSession, UiAccess
 from ..meldungen import fehler
 from ..models import utcnow
 from ..services import settings_service
-from ..services.engines import librespeed, ookla, registry
+from ..services.engines import iperf3, librespeed, ookla, registry
 from ..services.engines.base import MeasurementError
 from ..services.runner import runner
 from ..services.settings_service import SOURCES
@@ -25,11 +25,18 @@ class SourcesIn(BaseModel):
     librespeed_public: bool | None = None
     ookla_favorites: list[str] | None = Field(default=None, max_length=20)
     librespeed_favorites: list[str] | None = Field(default=None, max_length=20)
+    iperf3_favorites: list[str] | None = Field(default=None, max_length=20)
 
 
 class OwnServerIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     url: str = Field(min_length=4, max_length=255)
+
+
+class TargetIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    host: str = Field(min_length=1, max_length=255)
+    port: int = Field(default=iperf3.DEFAULT_PORT, ge=1, le=65535)
 
 
 class ActivateIn(BaseModel):
@@ -52,6 +59,15 @@ def state(db: Any) -> dict[str, Any]:
             "installed": ookla.installed(),
             "version": ookla.VERSION,
             "favorites": settings["ookla_favorites"],
+        },
+        "iperf3": {
+            "available": iperf3.available(),
+            "port": iperf3.DEFAULT_PORT,
+            "servers": [
+                {"id": target.id, "name": target.name, "host": target.host, "port": target.port}
+                for target in iperf3.parse_targets(settings["iperf3_servers"])
+            ],
+            "favorites": settings["iperf3_favorites"],
         },
         "librespeed": {
             "public": settings["librespeed_public"],
@@ -81,7 +97,7 @@ def put_sources(payload: SourcesIn, db: DbSession) -> dict[str, Any]:
         if not any(current.values()):
             raise fehler("last_source", "At least one source has to stay on.", 422)
         changes["sources"] = current
-    for name in ("librespeed_public", "ookla_favorites", "librespeed_favorites"):
+    for name in ("librespeed_public", "ookla_favorites", "librespeed_favorites", "iperf3_favorites"):
         value = getattr(payload, name)
         if value is not None:
             changes[name] = value
@@ -103,6 +119,38 @@ async def servers(source: str, db: DbSession) -> list[dict[str, Any]]:
     except MeasurementError as exc:
         raise fehler(exc.code, "The server list could not be loaded.", 502) from exc
     return [{"id": s.id, "name": s.name, "location": s.location, "sponsor": s.sponsor, "host": s.host} for s in found]
+
+
+@router.post("/iperf3/servers", status_code=201, summary="Add your own iperf3 server")
+async def add_target(payload: TargetIn, db: DbSession) -> dict[str, Any]:
+    host = payload.host.strip()
+    if "://" in host or "/" in host or " " in host:
+        raise fehler("invalid_host", "Enter the host name or IP address only, without a protocol or path.", 422)
+    if runner.running:
+        # Eine zweite Messung gegen dasselbe Ziel verfaelscht die laufende.
+        raise fehler("busy", "A test is already running.", 409)
+    existing = settings_service.load(db)["iperf3_servers"]
+    if any(iperf3.target_id(item["host"], item["port"]) == iperf3.target_id(host, payload.port) for item in existing):
+        raise fehler("server_exists", "This server is already in the list.", 409)
+    try:
+        await iperf3.check(host, payload.port)
+    except MeasurementError as exc:
+        raise fehler("iperf3_not_found", "No iperf3 server answered at this address.", 422, reason=exc.detail) from exc
+    settings_service.save(
+        db, {"iperf3_servers": [*existing, {"name": payload.name.strip(), "host": host, "port": payload.port}]}
+    )
+    return state(db)
+
+
+@router.delete("/iperf3/servers/{server_id}", summary="Remove your own iperf3 server")
+def remove_target(server_id: str, db: DbSession) -> dict[str, Any]:
+    settings = settings_service.load(db)
+    remaining = [
+        item for item in settings["iperf3_servers"] if iperf3.target_id(item["host"], item["port"]) != server_id
+    ]
+    favorites = [item for item in settings["iperf3_favorites"] if item != server_id]
+    settings_service.save(db, {"iperf3_servers": remaining, "iperf3_favorites": favorites})
+    return state(db)
 
 
 @router.post("/librespeed/servers", status_code=201, summary="Add your own LibreSpeed server")

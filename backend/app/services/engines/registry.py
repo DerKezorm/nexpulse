@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .base import Engine, MeasurementError
 from .cloudflare import CloudflareEngine
+from .iperf3 import Iperf3Engine
 from .librespeed import LibreSpeedEngine
 from .ookla import OoklaEngine
 
@@ -11,6 +12,7 @@ _ENGINES: dict[str, Engine] = {
     "cloudflare": CloudflareEngine(),
     "librespeed": LibreSpeedEngine(),
     "ookla": OoklaEngine(),
+    "iperf3": Iperf3Engine(),
 }
 
 

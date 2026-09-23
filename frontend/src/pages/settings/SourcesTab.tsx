@@ -110,6 +110,31 @@ export default function SourcesTab() {
         )}
       </SourceCard>
 
+      <SourceCard
+        mark="IP3"
+        title={t('sources.iperf3.name')}
+        on={data.sources.iperf3.switched_on && data.iperf3.available}
+        disabled={!data.iperf3.available}
+        onToggle={(on) => toggle('iperf3', on)}
+      >
+        <p>{t('sources.iperf3.text')}</p>
+        <Links links={[{ label: t('sources.iperf3.site'), href: 'https://software.es.net/iperf/' }]} />
+        {data.iperf3.available ? (
+          <>
+            <Targets state={data} onChange={state.set} />
+            {data.sources.iperf3.enabled && (
+              <Favorites
+                source="iperf3"
+                favorites={data.iperf3.favorites}
+                onChange={(favorites) => void update({ iperf3_favorites: favorites })}
+              />
+            )}
+          </>
+        ) : (
+          <Banner tone="bad">{t('sources.iperf3.unavailable')}</Banner>
+        )}
+      </SourceCard>
+
       {activating && (
         <ActivateOokla
           onClose={() => setActivating(false)}
@@ -255,6 +280,95 @@ function OwnServers({ state, onChange }: { state: SourcesState; onChange: (next:
           {t('common.add')}
         </Button>
       </div>
+    </div>
+  )
+}
+
+/** Die eigenen iperf3-Ziele. Ein Verzeichnis gibt es nicht, hier steht alles, was es gibt. */
+function Targets({ state, onChange }: { state: SourcesState; onChange: (next: SourcesState) => void }) {
+  const { t } = useTranslation()
+  const notify = useNotice()
+  const [name, setName] = useState('')
+  const [host, setHost] = useState('')
+  const [port, setPort] = useState(String(state.iperf3.port))
+  const [error, setError] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+
+  async function add() {
+    if (!host.trim()) {
+      setError(t('sources.iperf3.hostRequired'))
+      return
+    }
+    setAdding(true)
+    try {
+      onChange(
+        await api.post<SourcesState>('/api/sources/iperf3/servers', {
+          name: name.trim() || host.trim(),
+          host: host.trim(),
+          port: Number(port) || state.iperf3.port,
+        }),
+      )
+      setName('')
+      setHost('')
+      setPort(String(state.iperf3.port))
+      notify(t('sources.iperf3.added'))
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      onChange(await api.delete<SourcesState>(`/api/sources/iperf3/servers/${id}`))
+    } catch (caught) {
+      notify(errorMessage(caught))
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-ink-700 pt-3">
+      <p className="font-medium text-mist-200">{t('sources.iperf3.own')}</p>
+      {state.iperf3.servers.length === 0 && <p className="text-xs">{t('sources.iperf3.ownNone')}</p>}
+      {state.iperf3.servers.map((server) => (
+        <div key={server.id} className="flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-mist-300">
+            {server.name}{' '}
+            <span className="text-mist-600">
+              · {server.host}:{server.port}
+            </span>
+          </span>
+          <Button variant="link" size="sm" onClick={() => void remove(server.id)}>
+            {t('common.remove')}
+          </Button>
+        </div>
+      ))}
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_5.5rem_auto] sm:items-end">
+        <Field label={t('sources.iperf3.serverName')} value={name} placeholder="VPS" onChange={(event) => setName(event.target.value)} />
+        <Field
+          label={t('sources.iperf3.serverHost')}
+          value={host}
+          placeholder="vps.example.com"
+          error={error}
+          onChange={(event) => {
+            setHost(event.target.value)
+            setError(null)
+          }}
+        />
+        <Field
+          label={t('sources.iperf3.serverPort')}
+          value={port}
+          inputMode="numeric"
+          onChange={(event) => setPort(event.target.value.replace(/[^0-9]/g, ''))}
+        />
+        <Button variant="ghost" loading={adding} onClick={() => void add()} className={error ? 'sm:mb-6' : ''}>
+          {t('common.add')}
+        </Button>
+      </div>
+      {adding && <p className="text-xs">{t('sources.iperf3.checking')}</p>}
+      {/* Ein stehender Hinweis, kein Fehler: tone="bad" waere rot und wuerde als Alarm vorgelesen. */}
+      <Banner>{t('sources.iperf3.warning')}</Banner>
     </div>
   )
 }

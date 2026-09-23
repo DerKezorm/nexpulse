@@ -17,16 +17,19 @@ from ..config import get_settings
 from ..crypto import decrypt, encrypt
 from ..models import Setting
 
-SOURCES = ("cloudflare", "librespeed", "ookla")
+SOURCES = ("cloudflare", "librespeed", "ookla", "iperf3")
 
 DEFAULTS: dict[str, Any] = {
     "password_hash": "",
-    "sources": {"cloudflare": True, "librespeed": True, "ookla": False},
+    "sources": {"cloudflare": True, "librespeed": True, "ookla": False, "iperf3": False},
     "ookla_accepted_at": "",
     "ookla_favorites": [],
     "librespeed_public": True,
     "librespeed_servers": [],
     "librespeed_favorites": [],
+    #: Eigene iperf3-Ziele: ``{"name": ..., "host": ..., "port": ...}``.
+    "iperf3_servers": [],
+    "iperf3_favorites": [],
     "plan_down": None,
     "plan_up": None,
     "threshold_pct": 75,
@@ -99,4 +102,14 @@ def source_enabled(db: Session, source: str) -> bool:
     settings = load(db)
     if source == "ookla" and not settings["ookla_accepted_at"]:
         return False
+    if source == "iperf3" and not iperf3_available():
+        return False
     return bool(settings["sources"].get(source))
+
+
+def iperf3_available() -> bool:
+    """Ob das Programm ``iperf3`` da ist. Im Abbild ist es dabei, daneben nicht unbedingt."""
+    # Erst hier importiert: die Quelle liest ihre Ziele aus diesem Modul.
+    from .engines import iperf3
+
+    return iperf3.available()

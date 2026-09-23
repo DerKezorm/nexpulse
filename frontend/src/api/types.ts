@@ -1,7 +1,7 @@
 /** Formen der Antworten des Backends. Namen wie dort, snake_case. */
 
-export type Source = 'cloudflare' | 'librespeed' | 'ookla'
-export const SOURCES: Source[] = ['cloudflare', 'librespeed', 'ookla']
+export type Source = 'cloudflare' | 'librespeed' | 'ookla' | 'iperf3'
+export const SOURCES: Source[] = ['cloudflare', 'librespeed', 'ookla', 'iperf3']
 
 export type PublicConfig = {
   version: string
@@ -110,6 +110,12 @@ export type SourcesState = {
   librespeed: {
     public: boolean
     servers: { id: string; name: string; url: string }[]
+    favorites: string[]
+  }
+  iperf3: {
+    available: boolean
+    port: number
+    servers: { id: string; name: string; host: string; port: number }[]
     favorites: string[]
   }
 }

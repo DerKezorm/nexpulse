@@ -38,6 +38,13 @@ const PROVIDERS = [
       { key: 'privacy', href: 'https://www.speedtest.net/about/privacy' },
     ],
   },
+  {
+    key: 'iperf3',
+    links: [
+      { key: 'site', href: 'https://software.es.net/iperf/' },
+      { key: 'source', href: 'https://github.com/esnet/iperf' },
+    ],
+  },
 ] as const
 
 export default function AboutPage() {

@@ -13,9 +13,15 @@ export function speed(value: number | null | undefined): string {
   return value.toLocaleString(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
-export function ms(value: number | null | undefined, digits = 0): string {
+/** Millisekunden: unter 10 ms eine Nachkommastelle, sonst keine.
+ *
+ * Im eigenen Netz, etwa zu einem iperf3-Server nebenan, liegt der Ping unter
+ * einer Millisekunde. Ohne Nachkomma stuende dort ueberall "0".
+ */
+export function ms(value: number | null | undefined, digits?: number): string {
   if (value == null) return '–'
-  return value.toLocaleString(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  const places = digits ?? (Math.abs(value) < 10 ? 1 : 0)
+  return value.toLocaleString(locale(), { minimumFractionDigits: places, maximumFractionDigits: places })
 }
 
 export function percent(value: number | null | undefined): string {

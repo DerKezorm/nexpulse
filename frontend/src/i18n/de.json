@@ -258,6 +258,22 @@
       "removeTitle": "Ookla entfernen?",
       "removeText": "nexpulse löscht die Speedtest-CLI und deine Zustimmung. Frühere Ookla-Ergebnisse bleiben im Verlauf. Zeitpläne mit Ookla werden übersprungen, bis du es wieder freischaltest.",
       "removed": "Ookla entfernt"
+    },
+    "iperf3": {
+      "name": "iperf3",
+      "text": "Misst gegen einen iperf3-Server, den du selbst betreibst, etwa auf einem VPS. Keine öffentlichen Server, kein Dritter: nexpulse spricht nur mit der Adresse, die du einträgst. Gemessen wird eine Richtung nach der anderen, das dauert gut zwanzig Sekunden. Paketverlust bleibt leer, dafür bräuchte es UDP.",
+      "site": "software.es.net/iperf",
+      "source": "Quelltext",
+      "unavailable": "Das Programm iperf3 fehlt. Im nexpulse-Container ist es dabei; betreibst du nexpulse anders, installiere das Paket iperf3.",
+      "warning": "Ein iperf3-Server lässt jeden messen, der Adresse und Port kennt, und damit deine Leitung auslasten. Öffne den Port nur für dein eigenes Netz oder für die Adresse, von der nexpulse kommt.",
+      "own": "Deine Server",
+      "ownNone": "Noch keiner. Starte auf dem Ziel iperf3 -s und trage seine Adresse hier ein.",
+      "serverName": "Name",
+      "serverHost": "Adresse",
+      "serverPort": "Port",
+      "hostRequired": "Gib die Adresse des Servers ein.",
+      "checking": "Fragt den Server ...",
+      "added": "Server hinzugefügt"
     }
   },
   "access": {
@@ -379,7 +395,8 @@
     "provider": {
       "cloudflare": "Anycast-Speedtest im Netz von Cloudflare. Dieselben Endpunkte wie speed.cloudflare.com.",
       "librespeed": "Quelloffener Speedtest. Öffentliche Server von Freiwilligen und Hostern, oder dein eigener.",
-      "ookla": "Speedtest von Ookla. Nur nach deiner Freischaltung und auf eigenes Risiko: Die Lizenz deckt diese Nutzung nicht."
+      "ookla": "Speedtest von Ookla. Nur nach deiner Freischaltung und auf eigenes Risiko: Die Lizenz deckt diese Nutzung nicht.",
+      "iperf3": "Dein eigener iperf3-Server. Nach draußen geht nur die Messung selbst, und wohin sie geht, bestimmst du."
     },
     "links": {
       "site": "Webseite",
@@ -389,7 +406,7 @@
       "license": "Lizenz (EULA)",
       "terms": "Nutzungsbedingungen"
     },
-    "trademarks": "Cloudflare, LibreSpeed, Ookla und Speedtest sind Namen ihrer Inhaber. nexpulse gehört zu keinem von ihnen."
+    "trademarks": "Cloudflare, LibreSpeed, Ookla, Speedtest und iperf sind Namen ihrer Inhaber. nexpulse gehört zu keinem von ihnen."
   },
   "errors": {
     "generic": "Da ist etwas schiefgegangen.",
@@ -436,7 +453,13 @@
       "ookla_download_failed": "Die Ookla-CLI ließ sich nicht laden.",
       "ookla_not_installed": "Ookla ist nicht freigeschaltet.",
       "ookla_timeout": "Der Ookla-Test hat zu lange gedauert und wurde gestoppt.",
-      "ookla_failed": "Die Ookla-CLI hat einen Fehler gemeldet. Einzelheiten stehen im Protokoll."
+      "ookla_failed": "Die Ookla-CLI hat einen Fehler gemeldet. Einzelheiten stehen im Protokoll.",
+      "invalid_host": "Gib nur den Namen oder die IP-Adresse ein, ohne Protokoll und ohne Pfad.",
+      "iperf3_not_installed": "Das Programm iperf3 ist hier nicht installiert.",
+      "iperf3_not_found": "Unter dieser Adresse hat kein iperf3-Server geantwortet.",
+      "iperf3_busy": "Der iperf3-Server führt gerade einen anderen Test aus.",
+      "iperf3_timeout": "Der iperf3-Test hat zu lange gedauert und wurde abgebrochen.",
+      "iperf3_failed": "iperf3 hat einen Fehler gemeldet. Einzelheiten stehen im Protokoll."
     }
   }
 }
