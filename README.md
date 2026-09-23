@@ -34,7 +34,7 @@ The screenshots show a throwaway instance with made-up data.
   Home Assistant, with keys that can only read or also start tests.
 - **No accounts.** Optionally one password for the interface. The API always
   needs a key.
-- German and English, dark and light.
+- German, English and Chinese (Simplified and Traditional), dark and light.
 
 ![History with averages, the plan line and a chart per direction](docs/screenshots/history.png)
 
