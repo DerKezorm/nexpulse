@@ -49,7 +49,11 @@ ServerTime = Callable[[httpx.Response], float]
 
 
 class RequestTooLarge(Exception):
-    """Der Server hat die Anfrage mit 413 abgewiesen, die naechste ist kleiner."""
+    """Der Server hat die Anfrage wegen ihrer Groesse abgewiesen, die naechste ist kleiner.
+
+    Beim Upload mit 413 (LibreSpeed), beim Download mit 429 (Cloudflare nach seinem Deckel).
+    Zaehlt nicht als Fehler und wartet nicht.
+    """
 
 
 def client(streams: int = STREAMS) -> httpx.AsyncClient:
@@ -263,9 +267,21 @@ async def download(
     streams: int | None = None,
     duration: float | None = None,
     max_bytes: int | None = None,
+    smaller_url: Callable[[], str] | None = None,
 ) -> tuple[float | None, int, float | None]:
+    """``smaller_url`` liefert kleinere Anfragen, falls der Server die grossen mit 429 bremst."""
+    #: Die Verbindungen nehmen ``smaller_url``, fuer alle gemeinsam.
+    small = [False]
+
     async def worker(http: httpx.AsyncClient, meter: ThroughputMeter, stop: asyncio.Event) -> None:
-        async with http.stream("GET", url(), headers={"Cache-Control": "no-cache"}) as response:
+        use_small = small[0] and smaller_url is not None
+        target = smaller_url() if use_small and smaller_url else url()
+        async with http.stream("GET", target, headers={"Cache-Control": "no-cache"}) as response:
+            if response.status_code == 429 and smaller_url and not use_small:
+                if not small[0]:
+                    small[0] = True
+                    logger.info("download: the server throttled large requests (HTTP 429), going on with smaller ones")
+                raise RequestTooLarge()
             if response.status_code >= 400:
                 raise MeasurementError("server_error", f"HTTP {response.status_code}")
             async for chunk in response.aiter_raw(CHUNK):

@@ -34,6 +34,10 @@ UPLOAD_BYTES = 10_000_000
 #: es jede Download-Anfrage ab 10 MB fuer mehr als eine halbe Stunde ab. Bei 850 Mbit/s riss
 #: ein einzelner Test den Deckel (Issue #3). Der Upload hat keinen: 1,2 GB am Stueck gingen durch.
 DOWNLOAD_BUDGET = 500_000_000
+#: Bytes je Download-Anfrage, wenn Cloudflare nach dem Deckel die grossen mit 429 abweist.
+#: Gemessen am 25.09.2026: unter der Sperre gingen 9 MB, 10 MB nicht. Mit 8 MB liefen danach
+#: 1,5 GB in 15 s ohne ein 429, bei etwa 90 Prozent der Geschwindigkeit der grossen Anfragen.
+SMALL_DOWNLOAD_BYTES = 8_000_000
 _TIMING = re.compile(r"(cfSpeed\w*);dur=([\d.]+)")
 
 
@@ -100,6 +104,7 @@ class CloudflareEngine:
             reporter,
             server_time,
             max_bytes=DOWNLOAD_BUDGET,
+            smaller_url=lambda: f"{BASE}/__down?bytes={SMALL_DOWNLOAD_BYTES}&r={_nonce()}",
         )
         reporter.phase("upload")
         result.upload_mbps, result.bytes_up, result.loaded_up_ms = await transfer.upload(

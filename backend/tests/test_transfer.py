@@ -20,8 +20,9 @@ from app.services.engines.base import Cancelled, MeasurementError, Reporter
 CHUNK = b"x" * 262_144
 #: Welche Upload-Anfragen der nachgebaute Server abweist: "none", "every_other" oder "all".
 FLAKY = {"mode": "none", "count": 0}
-#: Nach so vielen Downloads antwortet der nachgebaute Server mit 429, wie Cloudflare nach 900 MB.
-DOWN_CAP = {"after": 0, "count": 0}
+#: Nach so vielen Downloads antwortet der nachgebaute Server mit 429, wie Cloudflare nach 900 MB
+#: (None: nie). Mit ``large_only`` nur fuer Anfragen ab 10 MB, wie Cloudflare unter der Sperre.
+DOWN_CAP: dict[str, Any] = {"after": None, "count": 0, "large_only": False, "small_served": 0}
 #: Uploads, deren Koerper nicht so lang war wie angekuendigt. Ein echter Server (h11) bricht dann ab.
 LENGTH = {"uploads": 0, "wrong": 0}
 #: Groesste Upload-Anfrage, die /empty.php annimmt (0: alle), wie nginx mit client_max_body_size.
@@ -46,7 +47,10 @@ async def fake_server(scope: dict[str, Any], receive: Any, send: Any) -> None:
         size = int(query.get("bytes", ["0"])[0])
         if size:
             DOWN_CAP["count"] += 1
-            if DOWN_CAP["after"] and DOWN_CAP["count"] > DOWN_CAP["after"]:
+            capped = DOWN_CAP["after"] is not None and DOWN_CAP["count"] > DOWN_CAP["after"]
+            if capped and DOWN_CAP["large_only"] and size < 10_000_000:
+                DOWN_CAP["small_served"] += 1
+            elif capped:
                 status = 429
         body = CHUNK[: min(size, len(CHUNK))]
         headers.append((b"server-timing", b"cfSpeedEdge;dur=1, cfSpeedWorker;dur=1"))
@@ -96,7 +100,7 @@ def local_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(cloudflare, "BASE", "http://fake")
     monkeypatch.setattr(cloudflare, "UPLOAD_BYTES", 256 * 1024)
     FLAKY.update(mode="none", count=0)
-    DOWN_CAP.update(after=0, count=0)
+    DOWN_CAP.update(after=None, count=0, large_only=False, small_served=0)
     LENGTH.update(uploads=0, wrong=0)
     BODY_LIMIT.update(bytes=0, refused=0, largest_accepted=0)
     yield
@@ -325,3 +329,27 @@ async def test_cloudflare_download_stays_under_its_budget(monkeypatch: pytest.Mo
 
 async def _no_upload(*_args: Any, **_kwargs: Any) -> tuple[float | None, int, float | None]:
     return 1.0, 1, None
+
+
+async def test_download_goes_on_with_smaller_requests_when_large_ones_are_throttled() -> None:
+    # Nach Cloudflares Deckel gehen Anfragen ab 10 MB lange nicht mehr durch, kleinere schon
+    # (gemessen am 25.09.2026). Frueher bekam dann der ganze Test keinen Download.
+    DOWN_CAP.update(after=0, large_only=True)
+    reporter, _ = recording_reporter()
+    mbps, received, _loaded = await transfer.download(
+        lambda: "http://fake/__down?bytes=25000000",
+        lambda: "http://fake/__down?bytes=0",
+        reporter,
+        smaller_url=lambda: "http://fake/__down?bytes=8000000",
+    )
+    assert mbps and mbps > 0 and received > 0
+    assert DOWN_CAP["small_served"] > 0
+
+
+async def test_cloudflare_measures_while_large_downloads_are_throttled(monkeypatch: pytest.MonkeyPatch) -> None:
+    DOWN_CAP.update(after=0, large_only=True)
+    monkeypatch.setattr(transfer, "upload", _no_upload)
+    reporter, _ = recording_reporter()
+    result = await cloudflare.CloudflareEngine().measure(None, reporter)
+    assert result.download_mbps and result.download_mbps > 0
+    assert DOWN_CAP["small_served"] > 0
