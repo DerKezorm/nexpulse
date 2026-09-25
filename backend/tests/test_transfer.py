@@ -22,6 +22,10 @@ CHUNK = b"x" * 262_144
 FLAKY = {"mode": "none", "count": 0}
 #: Nach so vielen Downloads antwortet der nachgebaute Server mit 429, wie Cloudflare nach 900 MB.
 DOWN_CAP = {"after": 0, "count": 0}
+#: Uploads, deren Koerper nicht so lang war wie angekuendigt. Ein echter Server (h11) bricht dann ab.
+LENGTH = {"uploads": 0, "wrong": 0}
+#: Groesste Upload-Anfrage, die /empty.php annimmt (0: alle), wie nginx mit client_max_body_size.
+BODY_LIMIT = {"bytes": 0, "refused": 0, "largest_accepted": 0}
 
 
 async def fake_server(scope: dict[str, Any], receive: Any, send: Any) -> None:
@@ -29,6 +33,7 @@ async def fake_server(scope: dict[str, Any], receive: Any, send: Any) -> None:
     path = scope["path"]
     query = parse_qs(scope["query_string"].decode())
     received = 0
+    declared = dict(scope["headers"]).get(b"content-length")
     while True:
         message = await receive()
         received += len(message.get("body", b""))
@@ -47,14 +52,27 @@ async def fake_server(scope: dict[str, Any], receive: Any, send: Any) -> None:
         headers.append((b"server-timing", b"cfSpeedEdge;dur=1, cfSpeedWorker;dur=1"))
     elif path in ("/__up", "/empty.php"):
         body = b""
+        if received:
+            LENGTH["uploads"] += 1
+            if declared is not None and int(declared) != received:
+                LENGTH["wrong"] += 1
         if path == "/__up" and received:
             FLAKY["count"] += 1
+            if FLAKY["mode"] == "crash_every_other" and FLAKY["count"] % 2 == 0:
+                # Kein httpx-Fehler, wie h11s LocalProtocolError oder ein ssl.SSLError.
+                raise OSError("connection broke off")
             if (
                 FLAKY["mode"] == "all"
                 or (FLAKY["mode"] == "every_other" and FLAKY["count"] % 2 == 0)
                 or (FLAKY["mode"] == "first" and FLAKY["count"] == 1)
             ):
                 status = 500
+        if path == "/empty.php" and received:
+            if BODY_LIMIT["bytes"] and received > BODY_LIMIT["bytes"]:
+                BODY_LIMIT["refused"] += 1
+                status = 413
+            else:
+                BODY_LIMIT["largest_accepted"] = max(BODY_LIMIT["largest_accepted"], received)
     elif path == "/garbage.php":
         body = CHUNK
     elif path == "/getIP.php":
@@ -79,6 +97,8 @@ def local_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(cloudflare, "UPLOAD_BYTES", 256 * 1024)
     FLAKY.update(mode="none", count=0)
     DOWN_CAP.update(after=0, count=0)
+    LENGTH.update(uploads=0, wrong=0)
+    BODY_LIMIT.update(bytes=0, refused=0, largest_accepted=0)
     yield
 
 
@@ -225,3 +245,83 @@ async def test_download_ends_when_the_server_starts_throttling(monkeypatch: pyte
     # Mit dem Ende bei 429 nach etwa einer halben Sekunde. Ohne es warteten die Verbindungen
     # fuenfmal je eine Sekunde, bevor sie aufgeben, und die Wartezeit zaehlte als Messzeit.
     assert loop.time() - started < 3
+
+
+async def test_upload_body_is_exactly_as_long_as_announced(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Issue #3: Cloudflares 10.000.000 Bytes sind kein Vielfaches der Stueckgroesse. Das
+    # letzte Stueck ging ueber die Laenge hinaus, und h11 brach jede Anfrage am Ende ab.
+    monkeypatch.setattr(cloudflare, "UPLOAD_BYTES", 300_000)
+    reporter, _ = recording_reporter()
+    await cloudflare.CloudflareEngine().measure(None, reporter)
+    assert LENGTH["uploads"] > 0
+    assert LENGTH["wrong"] == 0
+
+
+async def test_an_unexpected_error_does_not_quietly_end_a_connection() -> None:
+    # Issue #3: Ein Fehler, der kein httpx-Fehler ist, beendete die Verbindung ohne
+    # Eintrag. Bei schneller Leitung waren alle vor der halben Messzeit tot: "no answer".
+    FLAKY["mode"] = "crash_every_other"
+    reporter, _ = recording_reporter()
+    result = await cloudflare.CloudflareEngine().measure(None, reporter)
+    assert result.upload_mbps and result.upload_mbps > 0
+    assert FLAKY["count"] > 4
+
+
+async def test_upload_gets_smaller_when_the_server_refuses_the_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Issue #3: Manche LibreSpeed-Server nehmen nur 4 MiB oder 1 MiB je Anfrage (HTTP 413).
+    monkeypatch.setattr(transfer, "UPLOAD_STEPS", (128 * 1024, 64 * 1024, 16 * 1024))
+    BODY_LIMIT["bytes"] = 100_000
+    reporter, _ = recording_reporter()
+    mbps, sent, _loaded = await transfer.upload(
+        lambda: "http://fake/empty.php", lambda: "http://fake/empty.php", reporter
+    )
+    assert mbps and mbps > 0 and sent > 0
+    assert BODY_LIMIT["refused"] > 0
+    assert BODY_LIMIT["largest_accepted"] == 64 * 1024
+
+
+async def test_upload_that_is_too_large_even_at_the_smallest_step_is_not_a_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(transfer, "UPLOAD_STEPS", (128 * 1024, 16 * 1024))
+    BODY_LIMIT["bytes"] = 1000
+    reporter, _ = recording_reporter()
+    with pytest.raises(MeasurementError) as error:
+        await transfer.upload(lambda: "http://fake/empty.php", lambda: "http://fake/empty.php", reporter)
+    assert error.value.code == "unstable"
+    assert "HTTP 413" in error.value.detail
+
+
+async def test_transfer_ends_at_its_byte_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Issue #3: Cloudflare deckelt die Menge je kurzem Zeitfenster. Bei schneller Leitung
+    # erreichte ein einzelner Test den Deckel, und danach brach Cloudflare den Upload ab.
+    monkeypatch.setattr(transfer, "MIN_MEASURED", 0.3)
+    reporter, _ = recording_reporter()
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    mbps, received, _loaded = await transfer.download(
+        lambda: "http://fake/__down?bytes=25000000",
+        lambda: "http://fake/__down?bytes=0",
+        reporter,
+        duration=20.0,
+        max_bytes=len(CHUNK) * 4,
+    )
+    assert mbps and mbps > 0 and received >= len(CHUNK) * 4
+    assert loop.time() - started < 3
+
+
+async def test_cloudflare_download_stays_under_its_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(transfer, "MIN_MEASURED", 0.3)
+    monkeypatch.setattr(transfer, "DURATION", 20.0)
+    monkeypatch.setattr(cloudflare, "DOWNLOAD_BUDGET", len(CHUNK) * 4)
+    monkeypatch.setattr(transfer, "upload", _no_upload)
+    reporter, _ = recording_reporter()
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    result = await cloudflare.CloudflareEngine().measure(None, reporter)
+    assert result.download_mbps and result.download_mbps > 0
+    assert loop.time() - started < 5
+
+
+async def _no_upload(*_args: Any, **_kwargs: Any) -> tuple[float | None, int, float | None]:
+    return 1.0, 1, None

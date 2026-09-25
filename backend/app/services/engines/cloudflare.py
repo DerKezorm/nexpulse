@@ -29,6 +29,11 @@ DOWNLOAD_BYTES = 25_000_000
 #: Bytes je Upload-Anfrage. Grosse Uploads (25 MB und mehr) brach Cloudflare am 19.09.2026
 #: haeufiger ab; mit 10 MB stimmte das Ergebnis mit Ookla ueberein.
 UPLOAD_BYTES = 10_000_000
+#: So viele Bytes laedt ein Test hoechstens herunter. ⚠️ Cloudflare deckelt die Menge: Am
+#: 25.09.2026 kam nach 750 MB in einem Zug 429 (am 19.09.2026 nach 900 MB), und danach wies
+#: es jede Download-Anfrage ab 10 MB fuer mehr als eine halbe Stunde ab. Bei 850 Mbit/s riss
+#: ein einzelner Test den Deckel (Issue #3). Der Upload hat keinen: 1,2 GB am Stueck gingen durch.
+DOWNLOAD_BUDGET = 500_000_000
 _TIMING = re.compile(r"(cfSpeed\w*);dur=([\d.]+)")
 
 
@@ -90,7 +95,11 @@ class CloudflareEngine:
 
         reporter.phase("download")
         result.download_mbps, result.bytes_down, result.loaded_down_ms = await transfer.download(
-            lambda: f"{BASE}/__down?bytes={DOWNLOAD_BYTES}&r={_nonce()}", ping_url, reporter, server_time
+            lambda: f"{BASE}/__down?bytes={DOWNLOAD_BYTES}&r={_nonce()}",
+            ping_url,
+            reporter,
+            server_time,
+            max_bytes=DOWNLOAD_BUDGET,
         )
         reporter.phase("upload")
         result.upload_mbps, result.bytes_up, result.loaded_up_ms = await transfer.upload(

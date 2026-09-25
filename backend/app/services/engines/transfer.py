@@ -28,6 +28,10 @@ STREAMS = 6
 DURATION = 10.0
 WARMUP = 2.0
 UPLOAD_REQUEST_BYTES = 25 * 1024 * 1024
+#: Kleinere Upload-Anfragen, wenn ein Server die grosse mit 413 abweist. Gemessen am
+#: 25.09.2026 an den oeffentlichen LibreSpeed-Servern: Clouvider (sechs Standorte) nimmt
+#: bis 4 MiB, RackGenius nur 1 MiB (die Vorgabe von nginx), alle anderen 25 MiB.
+UPLOAD_STEPS = (8 * 1024 * 1024, 4 * 1024 * 1024, 1024 * 1024)
 #: So viele Fehler in Folge, dann gibt eine Verbindung auf.
 MAX_FAILURES = 5
 #: So viele Laufzeiten muessen mindestens durchkommen, und so viele Versuche duerfen es mehr sein.
@@ -42,6 +46,10 @@ _UPLOAD_BLOCK = os.urandom(1024 * 1024)
 
 #: Liefert fuer eine Antwort die Zeit, die der Server selbst gebraucht hat (Sekunden).
 ServerTime = Callable[[httpx.Response], float]
+
+
+class RequestTooLarge(Exception):
+    """Der Server hat die Anfrage mit 413 abgewiesen, die naechste ist kleiner."""
 
 
 def client(streams: int = STREAMS) -> httpx.AsyncClient:
@@ -159,6 +167,7 @@ async def _run_transfer(
     reporter: Reporter,
     streams: int | None,
     duration: float | None,
+    max_bytes: int | None = None,
 ) -> tuple[float | None, int, float | None]:
     # Erst hier aufgeloest, damit Tests die Messzeit kuerzen koennen.
     streams = streams or STREAMS
@@ -172,6 +181,8 @@ async def _run_transfer(
     #: Der Server hat mit 429 gebremst. Cloudflare deckelt die Menge je kurzem Zeitfenster
     #: (am 19.09.2026: nach genau 900 MB). Wer danach weiter misst, zaehlt Wartezeit mit.
     throttled = asyncio.Event()
+    #: Die Phase endete an ``max_bytes``, vor dem Ende der Messzeit.
+    capped = False
 
     async def guarded(http: httpx.AsyncClient, delay: float) -> None:
         # Versetzt starten, wie LibreSpeed: Sonst kaempfen alle Verbindungen
@@ -186,7 +197,12 @@ async def _run_transfer(
                 await worker(http, meter, stop)
                 accepted.append(1)
                 failures = 0
-            except (httpx.HTTPError, MeasurementError) as exc:
+            except RequestTooLarge:
+                failures = 0
+            # ⚠️ Alles fangen, nicht nur httpx.HTTPError: h11 wirft bei falscher Laenge einen
+            # eigenen Fehler. Er beendete bis 0.4.0 jede Verbindung lautlos, und bei schneller
+            # Leitung waren alle tot, bevor die halbe Messzeit um war ("no answer", Issue #3).
+            except Exception as exc:  # noqa: BLE001 - absichtlich, siehe oben
                 # ⚠️ Eine abgebrochene Anfrage beendet die Verbindung nicht. Cloudflare setzt
                 # Uploads sporadisch zurueck (gemessen 19.09.2026, auch bei 2 MB). Frueher
                 # endete die Verbindung damit, die Messung stoppte nach wenigen Sekunden und
@@ -213,6 +229,9 @@ async def _run_transfer(
                     break
                 if throttled.is_set() and meter.elapsed() >= WARMUP + MIN_MEASURED:
                     break
+                if max_bytes and meter.total >= max_bytes and meter.elapsed() >= WARMUP + MIN_MEASURED:
+                    capped = True
+                    break
             # ⚠️ Jetzt festhalten, nicht nach dem Aufraeumen: Das Warten auf den letzten
             # Ping unter Last dauert bis zu drei Sekunden und zaehlte sonst als Messzeit.
             elapsed = meter.elapsed()
@@ -227,7 +246,7 @@ async def _run_transfer(
         raise MeasurementError("unreachable", f"{phase}: {summarize_errors(errors) if errors else 'no data'}")
     if errors:
         logger.info("%s: %s requests failed and were repeated (%s)", phase, len(errors), summarize_errors(errors))
-    needed = WARMUP + MIN_MEASURED if throttled.is_set() else duration * 0.5
+    needed = WARMUP + MIN_MEASURED if throttled.is_set() or capped else duration * 0.5
     if unreliable(elapsed, needed, len(errors), len(accepted), streams):
         raise MeasurementError("unstable", f"{phase}: {summarize_errors(errors)}")
     if result is not None:
@@ -243,6 +262,7 @@ async def download(
     server_time: ServerTime = no_server_time,
     streams: int | None = None,
     duration: float | None = None,
+    max_bytes: int | None = None,
 ) -> tuple[float | None, int, float | None]:
     async def worker(http: httpx.AsyncClient, meter: ThroughputMeter, stop: asyncio.Event) -> None:
         async with http.stream("GET", url(), headers={"Cache-Control": "no-cache"}) as response:
@@ -253,7 +273,7 @@ async def download(
                 if stop.is_set():
                     return
 
-    return await _run_transfer("download", worker, ping_url, server_time, reporter, streams, duration)
+    return await _run_transfer("download", worker, ping_url, server_time, reporter, streams, duration, max_bytes)
 
 
 async def upload(
@@ -264,30 +284,49 @@ async def upload(
     streams: int | None = None,
     duration: float | None = None,
     request_bytes: int | None = None,
+    max_bytes: int | None = None,
 ) -> tuple[float | None, int, float | None]:
-    size = request_bytes or UPLOAD_REQUEST_BYTES
-
-    async def body(meter: ThroughputMeter, stop: asyncio.Event) -> AsyncIterator[bytes]:
-        # Der Koerper endet nie vorzeitig: Die Laenge steht schon in der Kopfzeile.
-        # Am Ende der Messzeit wird der ganze Auftrag abgebrochen.
-        sent = 0
-        while sent < size:
-            offset = sent % len(_UPLOAD_BLOCK)
-            piece = _UPLOAD_BLOCK[offset : offset + CHUNK]
-            sent += len(piece)
-            meter.add(len(piece))
-            yield piece
+    #: Groesse je Anfrage, fuer alle Verbindungen gemeinsam, damit ein 413 sie fuer alle senkt.
+    size = [request_bytes or UPLOAD_REQUEST_BYTES]
 
     async def worker(http: httpx.AsyncClient, meter: ThroughputMeter, stop: asyncio.Event) -> None:
+        current = size[0]
         response = await http.post(
             url(),
-            content=body(meter, stop),
-            headers={"Content-Type": "application/octet-stream", "Content-Length": str(size)},
+            content=upload_body(current, meter),
+            headers={"Content-Type": "application/octet-stream", "Content-Length": str(current)},
         )
-        if response.status_code >= 400 and not stop.is_set():
+        if stop.is_set():
+            return
+        if response.status_code == 413:
+            smaller = next((step for step in UPLOAD_STEPS if step < current), None)
+            if smaller is not None:
+                # Sechs Verbindungen bekommen das 413 fast gleichzeitig: nur eine Stufe tiefer, nicht sechs.
+                if size[0] == current:
+                    size[0] = smaller
+                    logger.info("upload: the server refused %s bytes per request (HTTP 413), now %s", current, smaller)
+                raise RequestTooLarge()
+        if response.status_code >= 400:
             raise MeasurementError("server_error", f"HTTP {response.status_code}")
 
-    return await _run_transfer("upload", worker, ping_url, server_time, reporter, streams, duration)
+    return await _run_transfer("upload", worker, ping_url, server_time, reporter, streams, duration, max_bytes)
+
+
+async def upload_body(size: int, meter: ThroughputMeter) -> AsyncIterator[bytes]:
+    """Genau ``size`` Bytes Zufall, gezaehlt beim Absenden.
+
+    Der Koerper endet nie vorzeitig: Die Laenge steht schon in der Kopfzeile. Am Ende der
+    Messzeit wird der ganze Auftrag abgebrochen. ⚠️ Das letzte Stueck wird gekuerzt: Bis
+    0.4.0 ging es ueber die Laenge hinaus, sobald sie kein Vielfaches von ``CHUNK`` war
+    (Cloudflare, 10.000.000 Bytes), und jede Anfrage scheiterte am Ende.
+    """
+    sent = 0
+    while sent < size:
+        offset = sent % len(_UPLOAD_BLOCK)
+        piece = _UPLOAD_BLOCK[offset : offset + min(CHUNK, size - sent)]
+        sent += len(piece)
+        meter.add(len(piece))
+        yield piece
 
 
 def summarize_latency(samples: list[float]) -> dict[str, float | None]:
