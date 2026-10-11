@@ -31,8 +31,9 @@ def _secure(request: Request) -> bool:
         return True
     if mode == "off":
         return False
-    forwarded = request.headers.get("x-forwarded-proto", "")
-    return request.url.scheme == "https" or forwarded.split(",")[0].strip() == "https"
+    # Das Schema eines vertrauten Proxys hat TrustedProxyMiddleware schon eingesetzt (proxy.py).
+    # Die Kopfzeile selbst gilt hier nicht: Sie kann jeder mitschicken.
+    return request.url.scheme == "https"
 
 
 def _set_session(response: Response, request: Request, password_hash: str) -> None:

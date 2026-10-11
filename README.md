@@ -102,6 +102,13 @@ services:
 Then open `http://<your-host>:8440`. The full example with every option is in
 [docker-compose.yml](docker-compose.yml).
 
+Behind a reverse proxy that ends TLS, name it in `NEXPULSE_TRUSTED_PROXIES`
+(addresses or networks, comma separated). nexpulse then takes the scheme from its
+`X-Forwarded-Proto` (the rightmost value of the last header line) and the sender
+from its `X-Forwarded-For`, so the session cookie is marked `Secure` and the
+sign-in brake counts each visitor on their own. From anyone else these headers
+count for nothing. Empty by default: nexpulse believes no one.
+
 Forgot the password? This turns it off:
 
 ```bash

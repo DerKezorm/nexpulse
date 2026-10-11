@@ -63,5 +63,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${NEXPULSE_PORT:-8000}/api/health" || exit 1
 
 # ⚠️ Ein Arbeitsprozess: SQLite, und der Zeitplan darf nur einmal laufen, sonst messen zwei Tests gleichzeitig.
+# --no-proxy-headers: Welchem Proxy nexpulse glaubt, entscheidet die App (NEXPULSE_TRUSTED_PROXIES, proxy.py).
+# uvicorn glaubte sonst ab Werk 127.0.0.1, und das ganze X-Forwarded-Proto statt des rechtesten Werts.
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--workers", "1"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--workers", "1", "--no-proxy-headers"]

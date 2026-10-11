@@ -18,6 +18,7 @@ from .config import get_settings
 from .db import init_db
 from .meldungen import meldung
 from .middleware import RequestIdMiddleware, configure_logging
+from .proxy import TrustedProxyMiddleware
 from .routers import about, auth, health, keys, results, schedules, settings, sources, tests, v1
 from .services import scheduler
 from .services.runner import runner
@@ -55,6 +56,8 @@ app = FastAPI(
     redoc_url=None,
 )
 app.add_middleware(RequestIdMiddleware)
+# Zuletzt angemeldet laeuft zuerst: Schema und Absender stehen fest, bevor irgendetwas sie liest.
+app.add_middleware(TrustedProxyMiddleware)
 
 
 @app.exception_handler(RequestValidationError)

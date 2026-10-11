@@ -41,3 +41,10 @@ services:
       # Whether the session cookie may only travel over HTTPS (only matters
       # with a password): auto, on or off.
       NEXPULSE_COOKIE_SECURE: ${NEXPULSE_COOKIE_SECURE:-auto}
+
+      # Behind a reverse proxy that ends TLS: its address or network (comma
+      # separated, e.g. 172.18.0.0/16). Only requests from there may say they
+      # came in over HTTPS (X-Forwarded-Proto) and from which address
+      # (X-Forwarded-For). Empty: nexpulse believes no one, so `auto` above
+      # sees plain HTTP and the sign-in brake sees the proxy as the sender.
+      NEXPULSE_TRUSTED_PROXIES: ${NEXPULSE_TRUSTED_PROXIES:-}

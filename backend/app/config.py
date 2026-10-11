@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     session_days: int = 30
     bcrypt_rounds: int = 12
     cookie_secure: str = "auto"
+    #: Proxys, deren X-Forwarded-Proto und X-Forwarded-For gelten (Adressen oder Netze, mit Komma). Leer: keiner.
+    trusted_proxies: str = ""
     disable_background: bool = False
     frontend_dist: Path = PROJECT_DIR / "frontend" / "dist"
     #: Standard-Zeitzone, bis der Betreiber eine waehlt. Im Container meist ueber TZ gesetzt.
