@@ -3,12 +3,13 @@ from __future__ import annotations
 import time
 from datetime import timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import Result, Schedule, utcnow
-from app.services import scheduler, settings_service
+from app.services import scheduler, settings_service, timing
 from app.services.runner import runner
 
 from .conftest import UI, FakeEngine
@@ -116,6 +117,33 @@ def test_schedule_runs_when_due(client: TestClient, fake_engine: FakeEngine) -> 
         schedule = db.get(Schedule, created["id"])
         assert schedule.last_run_at is not None
         assert schedule.next_run_at > utcnow()
+
+
+def test_early_offset_runs_a_slot_only_once(
+    client: TestClient, fake_engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Issue #5: Ein Lauf fuenf Minuten vor seinem Termin suchte den naechsten ab "jetzt" und
+    # fand denselben Termin noch einmal. So lief ein Zeitplan bis zu dreimal hintereinander.
+    monkeypatch.setattr(timing.random, "uniform", lambda low, high: low)
+    created = client.post(
+        "/api/schedules",
+        json={"name": "Every hour", "mode": "interval", "interval_minutes": 60},
+        headers=UI,
+    ).json()
+    with SessionLocal() as db:
+        first = db.get(Schedule, created["id"]).next_run_at
+    assert first is not None
+
+    async def tick() -> None:
+        scheduler.tick(first + timedelta(seconds=1))
+
+    client.portal.call(tick)
+    wait_done(client)
+    assert len(results()) == 1
+    with SessionLocal() as db:
+        following = db.get(Schedule, created["id"]).next_run_at
+    assert following is not None
+    assert following - first > timedelta(minutes=50)
 
 
 def test_missed_slot_is_skipped_not_caught_up(client: TestClient, fake_engine: FakeEngine) -> None:

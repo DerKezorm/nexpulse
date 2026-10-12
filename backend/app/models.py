@@ -68,6 +68,10 @@ class Schedule(Base):
     server_id: Mapped[str] = mapped_column(String(80), default="")
     random_offset: Mapped[bool] = mapped_column(Boolean, default=True)
     next_run_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
+    #: Der Termin hinter ``next_run_at``, ohne Zufallsversatz. Der naechste Lauf wird ab ihm
+    #: gesucht: Ab der Uhrzeit des Laufs gesucht, fand ein Lauf vor seinem Termin denselben
+    #: Termin noch einmal (Issue #5).
+    slot_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     last_run_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     #: Zaehler fuer "reihum"
     rotate_index: Mapped[int] = mapped_column(Integer, default=0)

@@ -208,19 +208,39 @@ def next_local(plan: Plan, after: datetime) -> datetime | None:
     return None
 
 
+def next_slot(
+    plan: Plan,
+    now: datetime,
+    tz: ZoneInfo,
+    random_offset: bool,
+    rng: random.Random | None = None,
+    after: datetime | None = None,
+) -> tuple[datetime, datetime] | None:
+    """Naechster Termin in UTC und der Zeitpunkt, zu dem er laeuft.
+
+    Der Zeitpunkt liegt nach Wunsch bis zu fuenf Minuten vor oder nach dem Termin. Gesucht wird
+    streng nach ``after`` (Vorgabe ``now``): Nach einem Lauf ist das der Termin, dem er galt.
+    Ein Lauf fuenf Minuten zu frueh faende sonst denselben Termin noch einmal.
+    """
+    start = max(now, after) if after is not None else now
+    local = start.astimezone(tz).replace(tzinfo=None)
+    target = next_local(plan, local)
+    if target is None:
+        return None
+    slot = target.replace(tzinfo=tz).astimezone(UTC)
+    moment = slot
+    if random_offset and plan.mode != "random":
+        offset = (rng or random).uniform(-300, 300)
+        moment = max(moment + timedelta(seconds=offset), now + timedelta(seconds=30))
+    return slot, moment
+
+
 def next_run(
     plan: Plan, now: datetime, tz: ZoneInfo, random_offset: bool, rng: random.Random | None = None
 ) -> datetime | None:
     """Naechster Termin in UTC, mit Zufallsversatz von bis zu fuenf Minuten nach Wunsch."""
-    local = now.astimezone(tz).replace(tzinfo=None)
-    target = next_local(plan, local)
-    if target is None:
-        return None
-    moment = target.replace(tzinfo=tz).astimezone(UTC)
-    if random_offset and plan.mode != "random":
-        offset = (rng or random).uniform(-300, 300)
-        moment = max(moment + timedelta(seconds=offset), now + timedelta(seconds=30))
-    return moment
+    found = next_slot(plan, now, tz, random_offset, rng)
+    return found[1] if found else None
 
 
 def upcoming(plan: Plan, now: datetime, tz: ZoneInfo, count: int = 5) -> list[datetime]:

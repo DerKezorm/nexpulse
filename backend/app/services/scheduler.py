@@ -47,14 +47,16 @@ def plan_of(schedule: Schedule) -> timing.Plan:
     )
 
 
-def reschedule(db: Session, schedule: Schedule, now: datetime | None = None) -> None:
+def reschedule(db: Session, schedule: Schedule, now: datetime | None = None, after: datetime | None = None) -> None:
+    """Naechsten Lauf festlegen. ``after``: der Termin, der gerade dran war, siehe ``timing.next_slot``."""
     now = now or utcnow()
     try:
-        schedule.next_run_at = timing.next_run(
-            plan_of(schedule), now, settings_service.timezone(db), schedule.random_offset is not False
+        found = timing.next_slot(
+            plan_of(schedule), now, settings_service.timezone(db), schedule.random_offset is not False, after=after
         )
     except (ValueError, timing.CronError):
-        schedule.next_run_at = None
+        found = None
+    schedule.slot_at, schedule.next_run_at = found if found else (None, None)
 
 
 def pick_server(db: Session, schedule: Schedule) -> str | None:
@@ -75,7 +77,8 @@ def tick(now: datetime | None = None) -> None:
     with SessionLocal() as db:
         schedules = list(db.scalars(select(Schedule).where(Schedule.enabled.is_(True)).order_by(Schedule.id)))
         for schedule in schedules:
-            if schedule.next_run_at is None:
+            if schedule.next_run_at is None or schedule.slot_at is None:
+                # Neu, oder aus einer Fassung ohne ``slot_at``: dort fehlt der Termin.
                 reschedule(db, schedule, now)
                 continue
             if schedule.next_run_at > now:
@@ -89,7 +92,7 @@ def tick(now: datetime | None = None) -> None:
                 continue
             if not settings_service.source_enabled(db, schedule.source):
                 logger.info("Schedule %s skipped: source %s is turned off", schedule.id, schedule.source)
-                reschedule(db, schedule, now)
+                reschedule(db, schedule, now, after=schedule.slot_at)
                 continue
             server = pick_server(db, schedule)
             try:
@@ -97,7 +100,7 @@ def tick(now: datetime | None = None) -> None:
             except Busy:
                 continue
             schedule.last_run_at = now
-            reschedule(db, schedule, now + timedelta(minutes=1))
+            reschedule(db, schedule, now, after=schedule.slot_at)
         db.commit()
 
 
