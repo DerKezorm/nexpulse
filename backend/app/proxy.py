@@ -7,7 +7,7 @@ Ein Proxy, der TLS beendet, reicht die Anfrage als ``http`` weiter und nennt in
 niemandem: Jeder koennte die Kopfzeilen sonst selbst mitschicken. uvicorn startet
 deshalb mit ``--no-proxy-headers`` (Dockerfile), sonst glaubte es 127.0.0.1.
 
-Regel aus dem gemeinsamen Bauplan (Anmeldung, „Hinter einem Proxy“): rechtester
+Regel: rechtester
 Wert der letzten Kopfzeile, ohne Gross und klein, nur ``http`` und ``https``
 (fuer einen WebSocket ``ws`` und ``wss``). Links davon kann der Besucher selbst
 etwas angehaengt haben.

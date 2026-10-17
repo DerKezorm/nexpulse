@@ -23,7 +23,7 @@ logger = logging.getLogger("nexpulse.db")
 _settings = get_settings()
 _settings.data_dir.mkdir(parents=True, exist_ok=True)
 
-# ⚠️ Kein Pool mit Obergrenze (wie in nexbeat, dort am 12.09.2026 gelernt): Mit dem
+# ⚠️ Kein Pool mit Obergrenze: Mit dem
 # Standardpool wartete die sechzehnte gleichzeitige Anfrage blockierend auf eine freie
 # Verbindung und hielt dabei die Ereignisschleife an. Hier haelt zusaetzlich jeder offene
 # Live-Strom eine Anfrage lange offen. Eine SQLite-Verbindung aufzumachen kostet

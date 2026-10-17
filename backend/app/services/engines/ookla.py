@@ -6,8 +6,7 @@ Betreiber in den Einstellungen zustimmt. Ooklas Lizenz erlaubt die CLI nur
 verbietet ausdruecklich, sie auf einem Geraet zu betreiben, das mehrere Geraete
 im Netz erreichen koennen, oder auf "any router, modem, or other non-personal
 computer device". Ein Container im Heimnetz faellt darunter. Das steht so in
-der Oberflaeche, und der Betreiber verantwortet die Nutzung selbst
-(entschieden am 19.09.2026).
+der Oberflaeche, und der Betreiber verantwortet die Nutzung selbst.
 
 Ausgabe mit ``-f jsonl -p yes``: eine JSON-Zeile je Ereignis (``testStart``,
 ``ping``, ``download``, ``upload``, ``result``, ``log``). Bandbreiten sind

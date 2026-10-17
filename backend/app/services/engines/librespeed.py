@@ -182,7 +182,7 @@ class LibreSpeedEngine:
         """Die Server fuer "automatisch", der beste zuerst, dahinter die Ausweichserver.
 
         Erst der Ping aller Server, dann ein kurzer Download bei den naechsten drei.
-        Nur nach Ping zu waehlen (wie librespeed-cli) nahm am 19.09.2026 von docker-dev
+        Nur nach Ping zu waehlen (wie librespeed-cli) nahm am 19.09.2026 von einem Testrechner
         aus einen kleinen Server, der mit 16 ms antwortete und 270 Mbit/s lieferte,
         wo Frankfurt 13 ms und die volle Leitung hatte.
         """
