@@ -63,9 +63,16 @@ class Schedule(Base):
     window_from: Mapped[str] = mapped_column(String(5), default="00:00")
     window_to: Mapped[str] = mapped_column(String(5), default="00:00")
     source: Mapped[str] = mapped_column(String(16), default="cloudflare")
-    #: auto (naechster Server), fixed (server_id) oder rotate (Favoriten reihum)
+    #: auto (naechster Server), fixed (server_id), rotate (Favoriten reihum)
+    #: oder tags (eigene Server mit diesen Tags reihum, Issue #6)
     server_mode: Mapped[str] = mapped_column(String(8), default="auto")
     server_id: Mapped[str] = mapped_column(String(80), default="")
+    #: Bei ``tags``: welche Tags, und ob ein Server einen davon (any) oder alle (all) tragen muss.
+    #: Darf leer sein: Aeltere Datenbanken bekommen die Spalte ohne Wert.
+    tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    tag_match: Mapped[str] = mapped_column(String(3), default="any")
+    #: Jedes Ergebnis dieses Zeitplans melden, nicht nur Auffaelliges (Issue #6).
+    notify_every: Mapped[bool] = mapped_column(Boolean, default=False)
     random_offset: Mapped[bool] = mapped_column(Boolean, default=True)
     next_run_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     #: Der Termin hinter ``next_run_at``, ohne Zufallsversatz. Der naechste Lauf wird ab ihm

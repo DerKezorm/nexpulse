@@ -31,11 +31,12 @@ import json
 import logging
 import shutil
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ...db import SessionLocal
 from .. import settings_service
+from ..tags import clean as clean_tags
 from . import transfer
 from .base import Measurement, MeasurementError, Reporter, ServerInfo
 
@@ -82,6 +83,8 @@ class Target:
     streams: int = STREAMS
     #: auto, ipv4 oder ipv6
     family: str = "auto"
+    #: Eigene Etiketten fuer Zeitplaene, siehe ``services/tags.py``.
+    tags: list[str] = field(default_factory=list)
 
     def info(self) -> ServerInfo:
         return ServerInfo(id=self.id, name=self.name, location="own server", host=f"{self.host}:{self.port}")
@@ -116,6 +119,7 @@ def parse_targets(items: list[dict[str, Any]]) -> list[Target]:
                 directions=directions if directions in DIRECTIONS else "both",
                 streams=_int(item.get("streams"), STREAMS, 1, MAX_STREAMS),
                 family=family if family in FAMILIES else "auto",
+                tags=clean_tags(item.get("tags") or []),
             )
         )
     return targets

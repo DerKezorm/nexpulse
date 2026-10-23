@@ -222,8 +222,10 @@ function OwnServers({ state, onChange }: { state: SourcesState; onChange: (next:
   const notify = useNotice()
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
+  const [tags, setTags] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
 
   async function add() {
     if (!url.trim()) {
@@ -232,14 +234,31 @@ function OwnServers({ state, onChange }: { state: SourcesState; onChange: (next:
     }
     setAdding(true)
     try {
-      onChange(await api.post<SourcesState>('/api/sources/librespeed/servers', { name: name.trim() || url.trim(), url: url.trim() }))
+      onChange(
+        await api.post<SourcesState>('/api/sources/librespeed/servers', {
+          name: name.trim() || url.trim(),
+          url: url.trim(),
+          tags: parseTags(tags),
+        }),
+      )
       setName('')
       setUrl('')
+      setTags('')
       notify(t('sources.librespeed.added'))
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
       setAdding(false)
+    }
+  }
+
+  async function save(id: string, changed: { name: string; tags: string[] }) {
+    try {
+      onChange(await api.put<SourcesState>(`/api/sources/librespeed/servers/${id}`, changed))
+      setEditing(null)
+      notify(t('sources.librespeed.saved'))
+    } catch (caught) {
+      notify(errorMessage(caught))
     }
   }
 
@@ -255,16 +274,28 @@ function OwnServers({ state, onChange }: { state: SourcesState; onChange: (next:
     <div className="flex flex-col gap-2 border-t border-ink-700 pt-3">
       <p className="font-medium text-mist-200">{t('sources.librespeed.own')}</p>
       {state.librespeed.servers.length === 0 && <p className="text-xs">{t('sources.librespeed.ownNone')}</p>}
-      {state.librespeed.servers.map((server) => (
-        <div key={server.id} className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-mist-300">
-            {server.name} <span className="text-mist-600">· {server.url}</span>
-          </span>
-          <Button variant="link" size="sm" onClick={() => void remove(server.id)}>
-            {t('common.remove')}
-          </Button>
-        </div>
-      ))}
+      {state.librespeed.servers.map((server) =>
+        editing === server.id ? (
+          <EditOwn key={server.id} server={server} onSave={(changed) => void save(server.id, changed)} onCancel={() => setEditing(null)} />
+        ) : (
+          <div key={server.id} className="flex items-start justify-between gap-3">
+            <span className="min-w-0 text-mist-300">
+              <span className="block truncate">
+                {server.name} <span className="text-mist-600">· {server.url}</span>
+              </span>
+              <TagList tags={server.tags} />
+            </span>
+            <span className="flex shrink-0 gap-3">
+              <Button variant="link" size="sm" onClick={() => setEditing(server.id)}>
+                {t('common.edit')}
+              </Button>
+              <Button variant="link" size="sm" onClick={() => void remove(server.id)}>
+                {t('common.remove')}
+              </Button>
+            </span>
+          </div>
+        ),
+      )}
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
         <Field label={t('sources.librespeed.serverName')} value={name} placeholder="Homelab" onChange={(event) => setName(event.target.value)} />
         <Field
@@ -281,7 +312,69 @@ function OwnServers({ state, onChange }: { state: SourcesState; onChange: (next:
           {t('common.add')}
         </Button>
       </div>
+      <TagsField value={tags} onChange={setTags} />
     </div>
+  )
+}
+
+function EditOwn({
+  server,
+  onSave,
+  onCancel,
+}: {
+  server: SourcesState['librespeed']['servers'][number]
+  onSave: (changed: { name: string; tags: string[] }) => void
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState(server.name)
+  const [tags, setTags] = useState(server.tags.join(', '))
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-ink-800/60 p-3">
+      <p className="text-xs text-mist-600">{server.url}</p>
+      <Field label={t('sources.librespeed.serverName')} value={name} onChange={(event) => setName(event.target.value)} />
+      <TagsField value={tags} onChange={setTags} />
+      <div className="flex gap-2">
+        <Button size="sm" onClick={() => onSave({ name: name.trim() || server.url, tags: parseTags(tags) })}>
+          {t('common.save')}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** "office, JP , Pro" wird zu drei Tags, auch mit chinesischem Komma. Gekuerzt und entdoppelt wird im Backend. */
+function parseTags(text: string): string[] {
+  return text
+    .split(/[,\uFF0C]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+}
+
+function TagsField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation()
+  return (
+    <Field
+      label={t('sources.tags')}
+      value={value}
+      placeholder={t('sources.tagsPlaceholder')}
+      hint={t('sources.tagsHint')}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  )
+}
+
+function TagList({ tags }: { tags: string[] }) {
+  if (!tags.length) return null
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <Badge key={tag}>{tag}</Badge>
+      ))}
+    </span>
   )
 }
 
@@ -292,6 +385,7 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
   const [host, setHost] = useState('')
   const [port, setPort] = useState(String(state.iperf3.port))
   const [fresh, setFresh] = useState<Iperf3Options>(DEFAULT_OPTIONS)
+  const [tags, setTags] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
@@ -307,6 +401,7 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
         await api.post<SourcesState>('/api/sources/iperf3/servers', {
           ...fresh,
           name: fresh.name.trim() || host.trim(),
+          tags: parseTags(tags),
           host: host.trim(),
           port: Number(port) || state.iperf3.port,
         }),
@@ -314,6 +409,7 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
       setHost('')
       setPort(String(state.iperf3.port))
       setFresh(DEFAULT_OPTIONS)
+      setTags('')
       notify(t('sources.iperf3.added'))
     } catch (caught) {
       setError(errorMessage(caught))
@@ -357,6 +453,7 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
             <span className="min-w-0 text-mist-300">
               {server.name} <span className="text-mist-600">&middot; {server.host}:{server.port}</span>
               <span className="block text-xs text-mist-600">{summary(t, server)}</span>
+              <TagList tags={server.tags} />
             </span>
             <span className="flex shrink-0 gap-3">
               <Button variant="link" size="sm" onClick={() => setEditing(server.id)}>
@@ -396,6 +493,7 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
           {t('common.add')}
         </Button>
       </div>
+      <TagsField value={tags} onChange={setTags} />
       <details>
         <summary className="cursor-pointer text-xs text-mist-400">{t('sources.iperf3.options')}</summary>
         <p className="mt-1 text-xs">{t('sources.iperf3.optionsHint')}</p>
@@ -408,7 +506,7 @@ function Targets({ state, onChange }: { state: SourcesState; onChange: (next: So
   )
 }
 
-const DEFAULT_OPTIONS: Iperf3Options = { name: '', directions: 'both', streams: 4, family: 'auto' }
+const DEFAULT_OPTIONS: Iperf3Options = { name: '', directions: 'both', streams: 4, family: 'auto', tags: [] }
 const DIRECTIONS = ['both', 'down', 'up'] as const
 const FAMILIES = ['auto', 'ipv4', 'ipv6'] as const
 const STREAM_CHOICES = [1, 2, 4, 8, 16, 32]
@@ -479,7 +577,9 @@ function EditTarget({
     directions: server.directions,
     streams: server.streams,
     family: server.family,
+    tags: server.tags,
   })
+  const [tags, setTags] = useState(server.tags.join(', '))
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-ink-800/60 p-3">
       <p className="text-xs text-mist-600">
@@ -490,9 +590,10 @@ function EditTarget({
         value={options.name}
         onChange={(event) => setOptions({ ...options, name: event.target.value })}
       />
+      <TagsField value={tags} onChange={setTags} />
       <OptionFields options={options} onChange={setOptions} />
       <div className="flex gap-2">
-        <Button size="sm" onClick={() => onSave({ ...options, name: options.name.trim() || server.host })}>
+        <Button size="sm" onClick={() => onSave({ ...options, name: options.name.trim() || server.host, tags: parseTags(tags) })}>
           {t('common.save')}
         </Button>
         <Button variant="ghost" size="sm" onClick={onCancel}>

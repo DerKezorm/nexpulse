@@ -8,12 +8,14 @@ import { SOURCES } from '../api/types'
 import { Gauge, Sparkline } from '../components/Gauge'
 import { useNotice } from '../components/Notice'
 import { Symbol } from '../components/Symbol'
-import { Badge, Banner, Button, Card, PageHeader, SELECT_CLASS } from '../components/ui'
+import { Badge, Banner, Button, Card, Field, PageHeader, SELECT_CLASS } from '../components/ui'
 import { dateTime, ms, percent, relative, speed } from '../lib/format'
 import { useLive } from '../lib/useLive'
 import { useLoad } from '../lib/useLoad'
 
 const AUTO = ''
+/** Eine Ookla-Nummer von Hand, auch fuer Server ausserhalb der Liste der nahen. */
+const MANUAL = 'manual'
 
 export default function LivePage() {
   const { t } = useTranslation()
@@ -26,6 +28,8 @@ export default function LivePage() {
 
   const [source, setSource] = useState<Source>('cloudflare')
   const [serverId, setServerId] = useState(AUTO)
+  const [manualId, setManualId] = useState('')
+  const [manualError, setManualError] = useState<string | null>(null)
   const [servers, setServers] = useState<ServerOption[]>([])
   const [serversLoading, setServersLoading] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -65,9 +69,13 @@ export default function LivePage() {
 
   async function start() {
     setFailure(null)
+    if (serverId === MANUAL && !/^\d+$/.test(manualId)) {
+      setManualError(t('sources.ookla.serverIdInvalid'))
+      return
+    }
     setStarting(true)
     try {
-      await api.post('/api/tests', { source, server_id: serverId || null })
+      await api.post('/api/tests', { source, server_id: (serverId === MANUAL ? manualId : serverId) || null })
     } catch (error) {
       setFailure(errorMessage(error))
     } finally {
@@ -170,6 +178,7 @@ export default function LivePage() {
                   onChange={(event) => setServerId(event.target.value)}
                 >
                   <option value={AUTO}>{source === 'cloudflare' ? t('live.cloudflareAuto') : t('live.nearest')}</option>
+                  {source === 'ookla' && <option value={MANUAL}>{t('sources.ookla.manualServer')}</option>}
                   {servers.map((server) => (
                     <option key={server.id} value={server.id}>
                       {server.sponsor && server.sponsor !== server.name ? `${server.sponsor} · ` : ''}
@@ -191,6 +200,23 @@ export default function LivePage() {
               </Button>
             )}
           </div>
+          {serverId === MANUAL && (
+            <div className="mt-3">
+              <Field
+                label={t('sources.ookla.serverId')}
+                value={manualId}
+                inputMode="numeric"
+                placeholder="24333"
+                hint={t('sources.ookla.serverIdHint')}
+                error={manualError}
+                disabled={live.running}
+                onChange={(event) => {
+                  setManualId(event.target.value.trim())
+                  setManualError(null)
+                }}
+              />
+            </div>
+          )}
           {failure && (
             <div className="mt-4">
               <Banner tone="bad">{failure}</Banner>

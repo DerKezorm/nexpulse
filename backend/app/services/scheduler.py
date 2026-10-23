@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..db import SessionLocal
 from ..models import Result, Schedule, utcnow
 from . import settings_service, timing
+from . import tags as server_tags
 from .runner import Busy, runner
 
 logger = logging.getLogger("nexpulse.scheduler")
@@ -59,16 +60,28 @@ def reschedule(db: Session, schedule: Schedule, now: datetime | None = None, aft
     schedule.slot_at, schedule.next_run_at = found if found else (None, None)
 
 
+class NoTaggedServer(Exception):
+    """Kein eigener Server traegt die Tags des Zeitplans (mehr)."""
+
+
 def pick_server(db: Session, schedule: Schedule) -> str | None:
     if schedule.server_mode == "fixed" and schedule.server_id:
         return schedule.server_id
     if schedule.server_mode == "rotate":
-        key = "ookla_favorites" if schedule.source == "ookla" else "librespeed_favorites"
-        favorites = [str(item) for item in settings_service.get(db, key) or []]
+        # Jede Quelle hat ihre eigenen Favoriten. Bis 0.4.4 nahm iperf3 hier die von LibreSpeed.
+        favorites = [str(item) for item in settings_service.get(db, f"{schedule.source}_favorites") or []]
         if favorites:
             server = favorites[schedule.rotate_index % len(favorites)]
             schedule.rotate_index += 1
             return server
+    if schedule.server_mode == "tags":
+        # Bei jedem Lauf neu gesucht: Wer einem Server ein Tag gibt oder nimmt, aendert den Zeitplan mit.
+        found = server_tags.matching(db, schedule.source, schedule.tags or [], schedule.tag_match or "any")
+        if not found:
+            raise NoTaggedServer()
+        server = found[schedule.rotate_index % len(found)]
+        schedule.rotate_index += 1
+        return server
     return None
 
 
@@ -94,7 +107,14 @@ def tick(now: datetime | None = None) -> None:
                 logger.info("Schedule %s skipped: source %s is turned off", schedule.id, schedule.source)
                 reschedule(db, schedule, now, after=schedule.slot_at)
                 continue
-            server = pick_server(db, schedule)
+            try:
+                server = pick_server(db, schedule)
+            except NoTaggedServer:
+                # Nicht still auslassen: Im Verlauf und in der Meldung soll stehen, warum nichts lief.
+                runner.record_failure(db, schedule.source, "no_tagged_server", "schedule", schedule.id)
+                schedule.last_run_at = now
+                reschedule(db, schedule, now, after=schedule.slot_at)
+                continue
             try:
                 runner.start(db, schedule.source, server, trigger="schedule", schedule_id=schedule.id)
             except Busy:

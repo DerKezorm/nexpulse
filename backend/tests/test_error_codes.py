@@ -24,6 +24,7 @@ PATTERNS = [
     re.compile(r'status, code = "[a-z]+", "([a-z_]+)"'),
     re.compile(r'"failed", "([a-z_]+)"'),
     re.compile(r'error_code = "([a-z_]+)"'),
+    re.compile(r'record_failure\([^)"]*"([a-z_]+)"'),
 ]
 
 

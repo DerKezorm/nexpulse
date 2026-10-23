@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -12,7 +12,7 @@ from sqlalchemy import select
 from ..deps import DbSession, UiAccess
 from ..meldungen import fehler
 from ..models import Schedule, utcnow
-from ..services import settings_service, timing
+from ..services import settings_service, tags, timing
 from ..services.scheduler import plan_of, reschedule
 from ..services.settings_service import SOURCES
 
@@ -35,9 +35,14 @@ class ScheduleIn(BaseModel):
     window_from: str = Field(default="00:00", pattern=TIME)
     window_to: str = Field(default="00:00", pattern=TIME)
     source: str = "cloudflare"
-    server_mode: Literal["auto", "fixed", "rotate"] = "auto"
+    server_mode: Literal["auto", "fixed", "rotate", "tags"] = "auto"
     server_id: str = Field(default="", max_length=80)
+    #: Bei ``tags``: eigene Server mit einem (any) oder allen (all) dieser Tags, reihum.
+    tags: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=20)
+    tag_match: Literal["any", "all"] = "any"
     random_offset: bool = True
+    #: Jedes Ergebnis ueber den Benachrichtigungsweg melden, nicht nur Auffaelliges.
+    notify_every: bool = False
 
 
 def schedule_dict(schedule: Schedule) -> dict[str, Any]:
@@ -57,7 +62,10 @@ def schedule_dict(schedule: Schedule) -> dict[str, Any]:
         "source": schedule.source,
         "server_mode": schedule.server_mode,
         "server_id": schedule.server_id,
+        "tags": schedule.tags or [],
+        "tag_match": schedule.tag_match or "any",
         "random_offset": schedule.random_offset,
+        "notify_every": bool(schedule.notify_every),
         "next_run_at": schedule.next_run_at.isoformat() if schedule.next_run_at else None,
         "last_run_at": schedule.last_run_at.isoformat() if schedule.last_run_at else None,
     }
@@ -73,6 +81,13 @@ def _validate(payload: ScheduleIn) -> None:
             raise fehler("invalid_cron", "This cron expression is not valid.", 422, reason=str(exc)) from exc
     if payload.server_mode == "fixed" and not payload.server_id:
         raise fehler("server_required", "Choose a server.", 422)
+    if payload.server_mode == "fixed" and payload.source == "ookla" and not payload.server_id.strip().isdigit():
+        raise fehler("invalid_server_id", "An Ookla server ID is a number.", 422)
+    if payload.server_mode == "tags":
+        if payload.source not in tags.SOURCES:
+            raise fehler("tags_not_supported", "Only your own LibreSpeed and iperf3 servers have tags.", 422)
+        if not tags.clean(payload.tags):
+            raise fehler("tags_required", "Choose at least one tag.", 422)
 
 
 def _apply(schedule: Schedule, payload: ScheduleIn) -> None:
@@ -80,6 +95,8 @@ def _apply(schedule: Schedule, payload: ScheduleIn) -> None:
         if name == "seed" and not value:
             # Ein Aufruf ohne Startwert soll die ausgelosten Zeiten nicht neu mischen.
             continue
+        if name == "tags":
+            value = tags.clean(value)
         setattr(schedule, name, value.strip() if isinstance(value, str) else value)
 
 

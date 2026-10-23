@@ -93,9 +93,12 @@ export type Schedule = {
   window_from: string
   window_to: string
   source: Source
-  server_mode: 'auto' | 'fixed' | 'rotate'
+  server_mode: 'auto' | 'fixed' | 'rotate' | 'tags'
   server_id: string
+  tags: string[]
+  tag_match: 'any' | 'all'
   random_offset: boolean
+  notify_every: boolean
   next_run_at: string | null
   last_run_at: string | null
 }
@@ -109,6 +112,7 @@ export type Iperf3Options = {
   directions: 'both' | 'down' | 'up'
   streams: number
   family: 'auto' | 'ipv4' | 'ipv6'
+  tags: string[]
 }
 
 export type Iperf3Server = Iperf3Options & { id: string; host: string; port: number }
@@ -118,7 +122,7 @@ export type SourcesState = {
   ookla: { accepted_at: string | null; installed: boolean; version: string; favorites: string[] }
   librespeed: {
     public: boolean
-    servers: { id: string; name: string; url: string }[]
+    servers: { id: string; name: string; url: string; tags: string[] }[]
     favorites: string[]
   }
   iperf3: {

@@ -33,6 +33,10 @@ def start_test(db: Any, source: str, server_id: str | None, trigger: str) -> dic
         raise fehler("unknown_source", "This source does not exist.", 422)
     if not settings_service.source_enabled(db, source):
         raise fehler("source_disabled", "This source is turned off.", 409, source=source)
+    server_id = server_id.strip() if server_id else None
+    if source == "ookla" and server_id and not server_id.isdigit():
+        # Die Nummer geht als Argument an die CLI. Was keine Zahl ist, kommt dort nicht an.
+        raise fehler("invalid_server_id", "An Ookla server ID is a number.", 422)
     try:
         result = runner.start(db, source, server_id, trigger=trigger)
     except Busy as exc:

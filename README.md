@@ -25,11 +25,15 @@ The screenshots show a throwaway instance with made-up data.
   day at random times**: the day is split into n equal parts with one test at a
   random minute in each, drawn anew every day, so over a few weeks every hour is
   covered and busy times show up. All of them can be limited to weekdays and a
-  time window. Tests never overlap.
+  time window. Tests never overlap. A schedule can take one server, your
+  favorites in turn, or, for your own LibreSpeed and iperf3 servers, every
+  server with certain **tags** in turn (for example all with `JP`, or all with
+  `office` and `Pro`). For Ookla you can enter any server ID, also one far away.
 - **History** with charts, averages and a CSV export.
 - **Your plan:** enter what your provider promises, and nexpulse marks tests
   below a threshold of it.
 - **Alerts** via ntfy, Gotify or a webhook: slow test, high ping, failed test.
+  A schedule can also report every one of its results.
 - **API** for dashboards like [nexdeck](https://github.com/DerKezorm/nexdeck) or
   Home Assistant, with keys that can only read or also start tests.
 - **No accounts.** Optionally one password for the interface. The API always

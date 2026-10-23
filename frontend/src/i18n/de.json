@@ -188,7 +188,20 @@
     "perDay": "Tests pro Tag",
     "perDayHint": "nexpulse teilt den Tag (oder das Zeitfenster) in so viele gleiche Abschnitte und misst in jedem einmal zu einer zufälligen Minute. Die Zeiten wechseln jeden Tag, nach ein paar Wochen ist so jede Stunde abgedeckt.",
     "randomPerDay_one": "einmal am Tag zu zufälliger Zeit",
-    "randomPerDay_other": "{{count}}-mal am Tag zu zufälligen Zeiten"
+    "randomPerDay_other": "{{count}}-mal am Tag zu zufälligen Zeiten",
+    "byTags": "Nach Tags, reihum",
+    "tags": "Tags",
+    "tagsNone": "Noch keiner deiner eigenen Server hat Tags. Du vergibst sie unter Einstellungen, Quellen.",
+    "tagMatch": "Server mit",
+    "tagMatchAny": "einem dieser Tags",
+    "tagMatchAll": "allen diesen Tags",
+    "tagMatches_one": "{{count}} Server passt. Jeder Lauf misst einen, reihum.",
+    "tagMatches_other": "{{count}} Server passen. Jeder Lauf misst einen, reihum.",
+    "tagMatchesNone": "Kein Server passt. Die Läufe scheitern, bis einer passt.",
+    "notifyEvery": "Jedes Ergebnis melden",
+    "notifyEveryHint": "Schickt jedes Ergebnis dieses Zeitplans an das Ziel unter Einstellungen, Warnungen. Ohne den Schalter gehen nur Warnungen raus.",
+    "notifyMissing": "Es gibt noch kein Ziel. Du wählst es unter Einstellungen, Warnungen.",
+    "notifyBadge": "Meldet jedes Ergebnis"
   },
   "days": {
     "mon": "Mo",
@@ -231,7 +244,8 @@
       "serverName": "Name",
       "serverUrl": "Adresse",
       "urlRequired": "Gib die Adresse des Servers ein.",
-      "added": "Server hinzugefügt"
+      "added": "Server hinzugefügt",
+      "saved": "Server geändert"
     },
     "ookla": {
       "name": "Ookla Speedtest",
@@ -257,7 +271,11 @@
       "remove": "Ookla entfernen",
       "removeTitle": "Ookla entfernen?",
       "removeText": "nexpulse löscht die Speedtest-CLI und deine Zustimmung. Frühere Ookla-Ergebnisse bleiben im Verlauf. Zeitpläne mit Ookla werden übersprungen, bis du es wieder freischaltest.",
-      "removed": "Ookla entfernt"
+      "removed": "Ookla entfernt",
+      "manualServer": "Server-Nummer eingeben",
+      "serverId": "Ookla-Server-Nummer",
+      "serverIdHint": "Jeder Ookla-Server, auch ein weit entfernter. Hilft, wenn Ookla dich falsch verortet, etwa hinter einem Proxy.",
+      "serverIdInvalid": "Eine Server-Nummer besteht nur aus Ziffern."
     },
     "iperf3": {
       "name": "iperf3",
@@ -292,7 +310,10 @@
         "ipv6": "IPv6"
       },
       "saved": "Server geändert"
-    }
+    },
+    "tags": "Tags",
+    "tagsPlaceholder": "Büro, JP, Pro",
+    "tagsHint": "Mit Kommas getrennt. Ein Zeitplan kann alle Server mit bestimmten Tags reihum messen."
   },
   "access": {
     "password": "Passwort",
@@ -477,7 +498,11 @@
       "iperf3_not_found": "Unter dieser Adresse hat kein iperf3-Server geantwortet.",
       "iperf3_busy": "Der iperf3-Server führt gerade einen anderen Test aus.",
       "iperf3_timeout": "Der iperf3-Test hat zu lange gedauert und wurde abgebrochen.",
-      "iperf3_failed": "iperf3 hat einen Fehler gemeldet. Einzelheiten stehen im Protokoll."
+      "iperf3_failed": "iperf3 hat einen Fehler gemeldet. Einzelheiten stehen im Protokoll.",
+      "invalid_server_id": "Eine Ookla-Server-Nummer besteht nur aus Ziffern.",
+      "tags_not_supported": "Tags gibt es nur an deinen eigenen LibreSpeed- und iperf3-Servern.",
+      "tags_required": "Wähle mindestens ein Tag.",
+      "no_tagged_server": "Keiner deiner eigenen Server trägt die Tags dieses Zeitplans."
     }
   }
 }

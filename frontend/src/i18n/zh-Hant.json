@@ -188,7 +188,20 @@
     "perDay": "每日測速次數",
     "perDayHint": "nexpulse 會將一天（或指定時段）平均分成這麼多段，並在每段中隨機選擇一分鐘測速。時間每天都會變動，持續幾週後即可涵蓋一天中的各個時段。",
     "randomPerDay_one": "每天隨機時間測速一次",
-    "randomPerDay_other": "每天隨機測速 {{count}} 次"
+    "randomPerDay_other": "每天隨機測速 {{count}} 次",
+    "byTags": "依標籤輪流",
+    "tags": "標籤",
+    "tagsNone": "您自己的伺服器還沒有標籤。請在「設定 > 測速來源」中新增。",
+    "tagMatch": "伺服器需帶有",
+    "tagMatchAny": "任一所選標籤",
+    "tagMatchAll": "全部所選標籤",
+    "tagMatches_one": "{{count}} 台伺服器符合。每次執行測試其中一台，依序進行。",
+    "tagMatches_other": "{{count}} 台伺服器符合。每次執行測試其中一台，依序進行。",
+    "tagMatchesNone": "沒有符合的伺服器。在有伺服器符合之前，每次執行都會失敗。",
+    "notifyEvery": "推送每次結果",
+    "notifyEveryHint": "將此排程的每次結果傳送到「設定 > 通知」中的接收位置。關閉時只傳送通知。",
+    "notifyMissing": "尚未設定接收位置。請在「設定 > 通知」中選擇。",
+    "notifyBadge": "推送每次結果"
   },
   "days": {
     "mon": "週一",
@@ -231,7 +244,8 @@
       "serverName": "名稱",
       "serverUrl": "位址",
       "urlRequired": "請輸入伺服器位址。",
-      "added": "伺服器已新增"
+      "added": "伺服器已新增",
+      "saved": "伺服器已修改"
     },
     "ookla": {
       "name": "Ookla Speedtest",
@@ -257,7 +271,11 @@
       "remove": "移除 Ookla",
       "removeTitle": "要移除 Ookla 嗎？",
       "removeText": "nexpulse 會刪除 Speedtest CLI 和您的確認紀錄。既有的 Ookla 測速結果會保留在歷史紀錄中。使用 Ookla 的排程會暫停，直到您重新啟用它。",
-      "removed": "Ookla 已移除"
+      "removed": "Ookla 已移除",
+      "manualServer": "輸入伺服器 ID",
+      "serverId": "Ookla 伺服器 ID",
+      "serverIdHint": "可以是任意 Ookla 伺服器，包括很遠的伺服器。適用於 Ookla 定位不準的情況，例如使用代理時。",
+      "serverIdInvalid": "伺服器 ID 只能是數字。"
     },
     "iperf3": {
       "name": "iperf3",
@@ -292,7 +310,10 @@
         "ipv6": "IPv6"
       },
       "saved": "伺服器已更新"
-    }
+    },
+    "tags": "標籤",
+    "tagsPlaceholder": "辦公室, JP, Pro",
+    "tagsHint": "以逗號分隔。排程可以依序測試帶有指定標籤的所有伺服器。"
   },
   "access": {
     "password": "密碼",
@@ -477,7 +498,11 @@
       "iperf3_not_found": "此位址上的 iperf3 伺服器沒有回應。",
       "iperf3_busy": "iperf3 伺服器正在執行其他測速工作。",
       "iperf3_timeout": "iperf3 測速耗時過長，已停止。",
-      "iperf3_failed": "iperf3 傳回錯誤，詳細資訊請查看記錄。"
+      "iperf3_failed": "iperf3 傳回錯誤，詳細資訊請查看記錄。",
+      "invalid_server_id": "Ookla 伺服器 ID 只能是數字。",
+      "tags_not_supported": "只有您自己的 LibreSpeed 和 iperf3 伺服器才有標籤。",
+      "tags_required": "請至少選擇一個標籤。",
+      "no_tagged_server": "您自己的伺服器中沒有一台帶有此排程的標籤。"
     }
   }
 }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
 from fastapi import APIRouter
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from ..deps import DbSession, UiAccess
 from ..meldungen import fehler
 from ..models import utcnow
-from ..services import settings_service
+from ..services import settings_service, tags
 from ..services.engines import iperf3, librespeed, ookla, registry
 from ..services.engines.base import MeasurementError
 from ..services.runner import runner
@@ -28,8 +28,16 @@ class SourcesIn(BaseModel):
     iperf3_favorites: list[str] | None = Field(default=None, max_length=20)
 
 
-class OwnServerIn(BaseModel):
+#: Etiketten eines eigenen Servers, siehe ``services/tags.py``. Gekuerzt und bereinigt wird dort.
+Tags = list[Annotated[str, Field(max_length=64)]]
+
+
+class OwnServerOptions(BaseModel):
     name: str = Field(min_length=1, max_length=80)
+    tags: Tags = Field(default_factory=list, max_length=50)
+
+
+class OwnServerIn(OwnServerOptions):
     url: str = Field(min_length=4, max_length=255)
 
 
@@ -40,6 +48,7 @@ class TargetOptions(BaseModel):
     streams: int = Field(default=iperf3.STREAMS, ge=1, le=iperf3.MAX_STREAMS)
     #: auto, ipv4 oder ipv6
     family: Literal["auto", "ipv4", "ipv6"] = "auto"
+    tags: Tags = Field(default_factory=list, max_length=50)
 
     def stored(self) -> dict[str, Any]:
         return {
@@ -47,6 +56,7 @@ class TargetOptions(BaseModel):
             "directions": self.directions,
             "streams": self.streams,
             "family": self.family,
+            "tags": tags.clean(self.tags),
         }
 
 
@@ -88,6 +98,7 @@ def state(db: Any) -> dict[str, Any]:
                     "directions": target.directions,
                     "streams": target.streams,
                     "family": target.family,
+                    "tags": target.tags,
                 }
                 for target in iperf3.parse_targets(settings["iperf3_servers"])
             ],
@@ -96,7 +107,12 @@ def state(db: Any) -> dict[str, Any]:
         "librespeed": {
             "public": settings["librespeed_public"],
             "servers": [
-                {"id": librespeed.own_id(item["base"]), "name": item["name"], "url": item["base"]}
+                {
+                    "id": librespeed.own_id(item["base"]),
+                    "name": item["name"],
+                    "url": item["base"],
+                    "tags": tags.clean(item.get("tags") or []),
+                }
                 for item in settings["librespeed_servers"]
             ],
             "favorites": settings["librespeed_favorites"],
@@ -210,9 +226,24 @@ async def add_own(payload: OwnServerIn, db: DbSession) -> dict[str, Any]:
         prefix = await librespeed.find_backend_prefix(base)
     except MeasurementError as exc:
         raise fehler("librespeed_not_found", "No LibreSpeed server answered at this address.", 422) from exc
-    settings_service.save(
-        db, {"librespeed_servers": [*existing, {"name": payload.name.strip(), "base": base, "prefix": prefix}]}
-    )
+    saved = {"name": payload.name.strip(), "base": base, "prefix": prefix, "tags": tags.clean(payload.tags)}
+    settings_service.save(db, {"librespeed_servers": [*existing, saved]})
+    return state(db)
+
+
+@router.put("/librespeed/servers/{server_id}", summary="Change name and tags of your own LibreSpeed server")
+def change_own(server_id: str, payload: OwnServerOptions, db: DbSession) -> dict[str, Any]:
+    # Die Adresse bleibt: Sie bildet die Kennung, an der Favoriten und Zeitplaene haengen.
+    servers = settings_service.load(db)["librespeed_servers"]
+    if not any(librespeed.own_id(item["base"]) == server_id for item in servers):
+        raise fehler("not_found", "This no longer exists.", 404)
+    changed = [
+        {**item, "name": payload.name.strip(), "tags": tags.clean(payload.tags)}
+        if librespeed.own_id(item["base"]) == server_id
+        else item
+        for item in servers
+    ]
+    settings_service.save(db, {"librespeed_servers": changed})
     return state(db)
 
 

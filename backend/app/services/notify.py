@@ -1,6 +1,7 @@
 """Benachrichtigungen nach einer Messung: ntfy, Gotify oder ein Webhook.
 
-Nur wenn etwas auffaellt: Test gescheitert, Tarif unterschritten, Ping zu hoch.
+Ab Werk nur, wenn etwas auffaellt: Test gescheitert, Tarif unterschritten, Ping zu hoch.
+Ein Zeitplan kann ausserdem jedes seiner Ergebnisse melden lassen (Issue #6).
 Die Texte sind englisch, wie alles, was nexpulse nach draussen schickt.
 """
 
@@ -12,7 +13,7 @@ from typing import Any
 import httpx
 
 from ..db import SessionLocal
-from ..models import Result
+from ..models import Result, Schedule
 from . import settings_service
 
 logger = logging.getLogger("nexpulse.notify")
@@ -44,11 +45,30 @@ def reasons(result: Result, settings: dict[str, Any]) -> list[str]:
     return found
 
 
-def compose(result: Result, found: list[str], settings: dict[str, Any]) -> tuple[str, str]:
+def every_result(result: Result, schedule: Schedule | None) -> list[str]:
+    """Anlass fuer einen Zeitplan, der jedes Ergebnis meldet. Leer heisst: nicht so einer."""
+    if schedule is None or not schedule.notify_every or result.trigger != "schedule":
+        return []
+    if result.status == "failed":
+        return ["failed"]
+    return ["result"] if result.status == "ok" else []
+
+
+def _where(result: Result, schedule_name: str) -> list[str]:
+    lines = []
+    server = ", ".join(part for part in (result.server_name, result.server_location) if part)
+    if server:
+        lines.append(f"Server: {server}")
+    if schedule_name:
+        lines.append(f"Schedule: {schedule_name}")
+    return lines
+
+
+def compose(result: Result, found: list[str], settings: dict[str, Any], schedule_name: str = "") -> tuple[str, str]:
     if "failed" in found:
         title = "nexpulse: speed test failed"
         body = f"The {result.source} test could not finish ({result.error_code or 'unknown error'})."
-        return title, body
+        return title, "\n".join([body, *_where(result, schedule_name)])
     parts = []
     if result.download_mbps is not None:
         parts.append(f"down {result.download_mbps:.0f} Mbit/s")
@@ -64,7 +84,13 @@ def compose(result: Result, found: list[str], settings: dict[str, Any]) -> tuple
         )
     if "ping" in found:
         lines.append(f"Ping is above {settings['alert_ping_ms']} ms.")
-    title = "nexpulse: slow connection" if "below_plan" in found else "nexpulse: high ping"
+    lines += _where(result, schedule_name)
+    if "below_plan" in found:
+        title = "nexpulse: slow connection"
+    elif "ping" in found:
+        title = "nexpulse: high ping"
+    else:
+        title = "nexpulse: speed test result"
     return title, "\n".join(lines)
 
 
@@ -74,6 +100,7 @@ TAGS = {
     "below_plan": "chart_with_downwards_trend",
     "ping": "hourglass",
     "test": "white_check_mark",
+    "result": "bar_chart",
 }
 
 
@@ -108,12 +135,14 @@ async def send(
 async def after_result(result: Result) -> None:
     with SessionLocal() as db:
         settings = settings_service.load(db)
-    found = reasons(result, settings)
+        schedule = db.get(Schedule, result.schedule_id) if result.schedule_id else None
+        schedule_name = schedule.name if schedule else ""
+        found = reasons(result, settings) or every_result(result, schedule)
     if not found or not settings["notify_kind"] or not settings["notify_url"]:
         return
     from .runner import result_dict
 
-    title, body = compose(result, found, settings)
+    title, body = compose(result, found, settings, schedule_name)
     try:
         await send(
             settings["notify_kind"],

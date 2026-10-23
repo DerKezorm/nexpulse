@@ -70,6 +70,7 @@ class Runner:
         self._task: asyncio.Task[None] | None = None
         self._cancel = False
         self._listeners: set[asyncio.Queue[dict[str, Any]]] = set()
+        self._notifying: set[asyncio.Task[None]] = set()
 
     # --- Zuhoerer --------------------------------------------------------
 
@@ -148,6 +149,35 @@ class Runner:
         self.live = Live(result_id=result.id, source=source, trigger=trigger, started_at=result.started_at)
         self._publish(self.live.snapshot())
         self._task = asyncio.create_task(self._run(result.id, source, server_id))
+        return result
+
+    def record_failure(self, db: Session, source: str, code: str, trigger: str, schedule_id: int | None) -> Result:
+        """Ein Test, der gar nicht erst beginnen konnte, etwa weil kein Server zum Zeitplan passt.
+
+        Er steht im Verlauf wie jeder gescheiterte Test und wird gemeldet wie einer.
+        """
+        now = utcnow()
+        result = Result(
+            source=source,
+            trigger=trigger,
+            schedule_id=schedule_id,
+            status="failed",
+            error_code=code,
+            started_at=now,
+            finished_at=now,
+        )
+        db.add(result)
+        db.commit()
+        db.refresh(result)
+        logger.warning("Speed test %s via %s could not start: %s", result.id, source, code)
+        try:
+            task = asyncio.get_running_loop().create_task(notify.after_result(result))
+        except RuntimeError:
+            # Ohne laufende Ereignisschleife (nur in Tests) bleibt es beim Eintrag.
+            return result
+        # Festhalten, sonst darf der Muellsammler die Aufgabe mittendrin wegraeumen.
+        self._notifying.add(task)
+        task.add_done_callback(self._notifying.discard)
         return result
 
     async def wait(self) -> None:

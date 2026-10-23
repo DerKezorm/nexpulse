@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, errorMessage } from '../api/client'
-import type { Schedule, ScheduleInput, ServerOption, Source, SourcesState } from '../api/types'
+import type { Schedule, ScheduleInput, ServerOption, Settings, Source, SourcesState } from '../api/types'
 import { SOURCES } from '../api/types'
 import { Dialog } from '../components/Dialog'
 import { useNotice } from '../components/Notice'
@@ -29,7 +29,36 @@ const EMPTY: ScheduleInput = {
   source: 'cloudflare',
   server_mode: 'auto',
   server_id: '',
+  tags: [],
+  tag_match: 'any',
   random_offset: true,
+  notify_every: false,
+}
+
+/** Die Tags der eigenen Server einer Quelle, jedes einmal (ohne Ruecksicht auf Gross und Klein). */
+function ownServers(sources: SourcesState | undefined, source: Source): { id: string; tags: string[] }[] {
+  if (!sources) return []
+  if (source === 'librespeed') return sources.librespeed.servers
+  if (source === 'iperf3') return sources.iperf3.servers
+  return []
+}
+
+function tagsOf(servers: { tags: string[] }[]): string[] {
+  const seen = new Map<string, string>()
+  for (const server of servers) for (const tag of server.tags) if (!seen.has(tag.toLowerCase())) seen.set(tag.toLowerCase(), tag)
+  return [...seen.values()].sort((a, b) => a.localeCompare(b))
+}
+
+/** Wie ``services/tags.matching`` im Backend: einer der Tags (any) oder alle (all). */
+function matching(servers: { id: string; tags: string[] }[], wanted: string[], match: 'any' | 'all'): string[] {
+  const want = wanted.map((tag) => tag.toLowerCase())
+  if (!want.length) return []
+  return servers
+    .filter((server) => {
+      const have = new Set(server.tags.map((tag) => tag.toLowerCase()))
+      return match === 'all' ? want.every((tag) => have.has(tag)) : want.some((tag) => have.has(tag))
+    })
+    .map((server) => server.id)
 }
 
 export default function SchedulePage() {
@@ -73,6 +102,8 @@ export default function SchedulePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">{schedule.name}</p>
                     <Badge>{t(`sources.${schedule.source}.name`)}</Badge>
+                    {schedule.server_mode === 'tags' && <Badge>{schedule.tags.join(schedule.tag_match === 'all' ? ' + ' : ' / ')}</Badge>}
+                    {schedule.notify_every && <Badge>{t('schedule.notifyBadge')}</Badge>}
                     {schedule.random_offset && schedule.mode !== 'random' && <Badge>{t('schedule.offsetBadge')}</Badge>}
                     {sources.data && !sources.data.sources[schedule.source].enabled && <Badge tone="bad">{t('schedule.sourceOff')}</Badge>}
                   </div>
@@ -161,13 +192,17 @@ function ScheduleDialog({
   const [servers, setServers] = useState<ServerOption[]>([])
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [manual, setManual] = useState(false)
+  const [serverIdError, setServerIdError] = useState<string | null>(null)
+  const settings = useLoad(() => api.get<Settings>('/api/settings'))
 
   const set = <K extends keyof ScheduleInput>(key: K, value: ScheduleInput[K]) => setForm((current) => ({ ...current, [key]: value }))
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       api
-        .post<{ runs: string[] }>('/api/schedules/preview', { ...form, name: form.name || 'preview' })
+        // Die Vorschau zeigt nur Zeiten. Eine halb getippte Server-Nummer soll hier keinen Fehler melden.
+        .post<{ runs: string[] }>('/api/schedules/preview', { ...form, name: form.name || 'preview', server_mode: 'auto', server_id: '', tags: [] })
         .then((answer) => {
           setPreview(answer.runs)
           setError(null)
@@ -198,11 +233,35 @@ function ScheduleDialog({
     else setForm((current) => ({ ...current, mode: 'interval', interval_minutes: Number(value) }))
   }
 
-  const favorites = form.source === 'ookla' ? sources?.ookla.favorites : form.source === 'librespeed' ? sources?.librespeed.favorites : []
+  const favorites = form.source === 'cloudflare' ? [] : sources?.[form.source].favorites
+  const own = ownServers(sources, form.source)
+  const available = tagsOf(own)
+  const matches = matching(own, form.tags, form.tag_match)
+  // Eine Nummer, die Ookla in seiner Liste der nahen Server nicht fuehrt, kam von Hand.
+  const manualShown =
+    form.source === 'ookla' && form.server_mode === 'fixed' && (manual || !servers.some((server) => server.id === form.server_id))
+  const serverValue = manualShown ? 'manual' : form.server_mode === 'fixed' ? `fixed:${form.server_id}` : form.server_mode
+
+  function setServer(value: string) {
+    setManual(value === 'manual')
+    setServerIdError(null)
+    if (value === 'manual') setForm((current) => ({ ...current, server_mode: 'fixed', server_id: '' }))
+    else if (value.startsWith('fixed:')) setForm((current) => ({ ...current, server_mode: 'fixed', server_id: value.slice(6) }))
+    else setForm((current) => ({ ...current, server_mode: value as 'auto' | 'rotate' | 'tags', server_id: '' }))
+  }
+
+  function toggleTag(tag: string) {
+    const on = form.tags.some((item) => item.toLowerCase() === tag.toLowerCase())
+    set('tags', on ? form.tags.filter((item) => item.toLowerCase() !== tag.toLowerCase()) : [...form.tags, tag])
+  }
 
   async function save() {
     if (!form.name.trim()) {
       setNameError(t('schedule.nameRequired'))
+      return
+    }
+    if (manualShown && !/^\d+$/.test(form.server_id.trim())) {
+      setServerIdError(t('sources.ookla.serverIdInvalid'))
       return
     }
     setSaving(true)
@@ -344,7 +403,14 @@ function ScheduleDialog({
         </>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <SelectField label={t('schedule.source')} value={form.source} onChange={(value) => setForm((current) => ({ ...current, source: value as Source, server_mode: 'auto', server_id: '' }))}>
+        <SelectField
+          label={t('schedule.source')}
+          value={form.source}
+          onChange={(value) => {
+            setManual(false)
+            setForm((current) => ({ ...current, source: value as Source, server_mode: 'auto', server_id: '', tags: [] }))
+          }}
+        >
           {SOURCES.map((name) => (
             <option key={name} value={name}>
               {t(`sources.${name}.name`)}
@@ -352,30 +418,79 @@ function ScheduleDialog({
             </option>
           ))}
         </SelectField>
-        <SelectField
-          label={t('schedule.server')}
-          value={form.server_mode === 'fixed' ? `fixed:${form.server_id}` : form.server_mode}
-          disabled={form.source === 'cloudflare'}
-          onChange={(value) => {
-            if (value.startsWith('fixed:')) setForm((current) => ({ ...current, server_mode: 'fixed', server_id: value.slice(6) }))
-            else setForm((current) => ({ ...current, server_mode: value as 'auto' | 'rotate', server_id: '' }))
-          }}
-        >
+        <SelectField label={t('schedule.server')} value={serverValue} disabled={form.source === 'cloudflare'} onChange={setServer}>
           <option value="auto">{form.source === 'cloudflare' ? t('live.cloudflareAuto') : t('live.nearest')}</option>
           {favorites && favorites.length > 0 && <option value="rotate">{t('schedule.rotate', { count: favorites.length })}</option>}
+          {(own.length > 0 || form.server_mode === 'tags') && <option value="tags">{t('schedule.byTags')}</option>}
+          {form.source === 'ookla' && <option value="manual">{t('sources.ookla.manualServer')}</option>}
           {servers.map((server) => (
             <option key={server.id} value={`fixed:${server.id}`}>
               {server.name}
             </option>
           ))}
-          {form.server_mode === 'fixed' && !servers.some((server) => server.id === form.server_id) && (
+          {form.server_mode === 'fixed' && !manualShown && !servers.some((server) => server.id === form.server_id) && (
             <option value={`fixed:${form.server_id}`}>{form.server_id}</option>
           )}
         </SelectField>
       </div>
+      {manualShown && (
+        <Field
+          label={t('sources.ookla.serverId')}
+          value={form.server_id}
+          inputMode="numeric"
+          placeholder="24333"
+          hint={t('sources.ookla.serverIdHint')}
+          error={serverIdError}
+          onChange={(event) => {
+            set('server_id', event.target.value.trim())
+            setServerIdError(null)
+          }}
+        />
+      )}
+      {form.server_mode === 'tags' && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm font-medium text-mist-300">{t('schedule.tags')}</p>
+          {available.length === 0 ? (
+            <p className="text-xs text-mist-500">{t('schedule.tagsNone')}</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {available.map((tag) => {
+                const on = form.tags.some((item) => item.toLowerCase() === tag.toLowerCase())
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleTag(tag)}
+                    className={
+                      'rounded-full border px-3 py-1 text-sm transition-colors ' +
+                      (on ? 'border-accent-500/60 bg-accent-500/15 text-accent-400' : 'border-ink-700 bg-ink-900 text-mist-500 hover:text-mist-100')
+                    }
+                  >
+                    {tag}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {form.tags.length > 1 && (
+            <SelectField label={t('schedule.tagMatch')} value={form.tag_match} onChange={(value) => set('tag_match', value as 'any' | 'all')}>
+              <option value="any">{t('schedule.tagMatchAny')}</option>
+              <option value="all">{t('schedule.tagMatchAll')}</option>
+            </SelectField>
+          )}
+          {form.tags.length > 0 && (
+            <p className={'text-xs ' + (matches.length ? 'text-mist-500' : 'text-bad-500')}>
+              {matches.length ? t('schedule.tagMatches', { count: matches.length }) : t('schedule.tagMatchesNone')}
+            </p>
+          )}
+        </div>
+      )}
       {form.mode !== 'random' && (
         <Switch label={t('schedule.offset')} hint={t('schedule.offsetHint')} checked={form.random_offset} onChange={(value) => set('random_offset', value)} />
       )}
+      <Switch label={t('schedule.notifyEvery')} hint={t('schedule.notifyEveryHint')} checked={form.notify_every} onChange={(value) => set('notify_every', value)} />
+      {form.notify_every && settings.data && !settings.data.notify_kind && <Banner>{t('schedule.notifyMissing')}</Banner>}
       {error ? (
         <Banner tone="bad">{error}</Banner>
       ) : (

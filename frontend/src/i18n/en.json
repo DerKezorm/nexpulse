@@ -188,7 +188,20 @@
     "perDay": "Tests per day",
     "perDayHint": "nexpulse splits the day (or the time window) into this many equal parts and tests once at a random minute in each. The times change every day, so over a few weeks every hour gets covered.",
     "randomPerDay_one": "once a day at a random time",
-    "randomPerDay_other": "{{count}} times a day at random times"
+    "randomPerDay_other": "{{count}} times a day at random times",
+    "byTags": "By tag, in turn",
+    "tags": "Tags",
+    "tagsNone": "None of your own servers has tags yet. Add them under Settings, Sources.",
+    "tagMatch": "Servers with",
+    "tagMatchAny": "any of these tags",
+    "tagMatchAll": "all of these tags",
+    "tagMatches_one": "{{count}} server matches. Each run tests one, in turn.",
+    "tagMatches_other": "{{count}} servers match. Each run tests one, in turn.",
+    "tagMatchesNone": "No server matches. Runs fail until one does.",
+    "notifyEvery": "Report every result",
+    "notifyEveryHint": "Sends each result of this schedule to the target under Settings, Alerts. Without it, only alerts go out.",
+    "notifyMissing": "There is no target yet. Choose one under Settings, Alerts.",
+    "notifyBadge": "Reports every result"
   },
   "days": {
     "mon": "Mon",
@@ -231,7 +244,8 @@
       "serverName": "Name",
       "serverUrl": "Address",
       "urlRequired": "Enter the address of the server.",
-      "added": "Server added"
+      "added": "Server added",
+      "saved": "Server changed"
     },
     "ookla": {
       "name": "Ookla Speedtest",
@@ -257,7 +271,11 @@
       "remove": "Remove Ookla",
       "removeTitle": "Remove Ookla?",
       "removeText": "nexpulse deletes the Speedtest CLI and your acceptance. Past Ookla results stay in the history. Schedules using Ookla are skipped until you activate it again.",
-      "removed": "Ookla removed"
+      "removed": "Ookla removed",
+      "manualServer": "Enter a server ID",
+      "serverId": "Ookla server ID",
+      "serverIdHint": "Any Ookla server, also one far away. Useful when Ookla places you wrongly, for example behind a proxy.",
+      "serverIdInvalid": "A server ID is a number."
     },
     "iperf3": {
       "name": "iperf3",
@@ -292,7 +310,10 @@
         "ipv6": "IPv6"
       },
       "saved": "Server changed"
-    }
+    },
+    "tags": "Tags",
+    "tagsPlaceholder": "office, JP, Pro",
+    "tagsHint": "Separate them with commas. A schedule can test all servers with certain tags in turn."
   },
   "access": {
     "password": "Password",
@@ -477,7 +498,11 @@
       "iperf3_not_found": "No iperf3 server answered at this address.",
       "iperf3_busy": "The iperf3 server is busy running another test.",
       "iperf3_timeout": "The iperf3 test took too long and was stopped.",
-      "iperf3_failed": "iperf3 reported an error. The log has the details."
+      "iperf3_failed": "iperf3 reported an error. The log has the details.",
+      "invalid_server_id": "An Ookla server ID is a number.",
+      "tags_not_supported": "Only your own LibreSpeed and iperf3 servers have tags.",
+      "tags_required": "Choose at least one tag.",
+      "no_tagged_server": "None of your own servers carries the tags of this schedule."
     }
   }
 }
