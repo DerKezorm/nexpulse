@@ -380,22 +380,31 @@
     "url": {
       "ntfy": "主题地址",
       "gotify": "Gotify 地址",
+      "telegram": "聊天 ID",
       "webhook": "Webhook 地址"
     },
     "urlPlaceholder": {
       "ntfy": "https://ntfy.example.com/nexpulse",
       "gotify": "https://gotify.example.com",
+      "telegram": "-1001234567890 或 @yourchannel",
       "webhook": "https://example.com/hooks/nexpulse"
     },
     "token": {
       "ntfy": "访问令牌",
       "gotify": "应用令牌",
+      "telegram": "机器人令牌",
       "webhook": "Bearer 令牌"
     },
     "optional": "可选",
     "keepHint": "留空即可保留已保存的地址。",
+    "keepChatHint": "留空即可保留已保存的聊天 ID。",
+    "telegramHint": "通过 @BotFather 创建一个机器人，并给它发送一条消息。你的聊天 ID 是 api.telegram.org/bot<令牌>/getUpdates 中的数字。",
     "urlRequired": "请输入地址。",
     "urlInvalid": "地址必须以 http:// 或 https:// 开头。",
+    "chatRequired": "请输入聊天 ID。",
+    "chatInvalid": "聊天 ID 是类似 -1001234567890 的数字，公开频道则为 @名称。",
+    "botTokenRequired": "请输入 @BotFather 提供的机器人令牌。",
+    "botTokenInvalid": "机器人令牌形如 123456789:AA…（数字、冒号，然后是字母）。",
     "sendTest": "发送测试通知",
     "testSent": "测试通知已发送"
   },
@@ -480,6 +489,8 @@
       "notify_not_configured": "请先设置通知接收位置。",
       "notify_unreachable": "无法连接到通知接收端。",
       "notify_rejected": "通知接收端拒绝了消息，请检查地址和令牌。",
+      "invalid_chat_id": "这不是有效的 Telegram 聊天 ID。",
+      "invalid_bot_token": "这不是有效的 Telegram 机器人令牌。",
       "unreachable": "无法连接到测速服务器。",
       "server_error": "测速服务器返回错误。",
       "no_server": "没有服务器响应，请检查测速来源设置。",

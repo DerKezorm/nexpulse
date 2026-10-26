@@ -1,4 +1,4 @@
-"""Benachrichtigungen nach einer Messung: ntfy, Gotify oder ein Webhook.
+"""Benachrichtigungen nach einer Messung: ntfy, Gotify, Telegram oder ein Webhook.
 
 Ab Werk nur, wenn etwas auffaellt: Test gescheitert, Tarif unterschritten, Ping zu hoch.
 Ein Zeitplan kann ausserdem jedes seiner Ergebnisse melden lassen (Issue #6).
@@ -7,7 +7,9 @@ Die Texte sind englisch, wie alles, was nexpulse nach draussen schickt.
 
 from __future__ import annotations
 
+import html
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -18,7 +20,13 @@ from . import settings_service
 
 logger = logging.getLogger("nexpulse.notify")
 
-KINDS = ("ntfy", "gotify", "webhook")
+KINDS = ("ntfy", "gotify", "telegram", "webhook")
+
+TELEGRAM_API = "https://api.telegram.org"
+#: Der Bot-Token steht im Pfad der Adresse, darf also nichts anderes enthalten (Issue #7).
+TELEGRAM_TOKEN = re.compile(r"\d{1,20}:[A-Za-z0-9_-]{20,100}")
+#: Zahl fuer Personen und Gruppen, @name fuer oeffentliche Kanaele.
+TELEGRAM_CHAT = re.compile(r"-?\d{1,20}|@[A-Za-z][A-Za-z0-9_]{4,31}")
 
 
 class NotifyError(Exception):
@@ -116,6 +124,18 @@ async def send(
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                 response = await client.post(url, content=body.encode("utf-8"), headers=headers)
+            elif kind == "telegram":
+                if not TELEGRAM_TOKEN.fullmatch(token) or not TELEGRAM_CHAT.fullmatch(url):
+                    raise NotifyError("notify_not_configured")
+                response = await client.post(
+                    f"{TELEGRAM_API}/bot{token}/sendMessage",
+                    json={
+                        "chat_id": url,
+                        "text": f"<b>{html.escape(title)}</b>\n{html.escape(body)}",
+                        "parse_mode": "HTML",
+                        "link_preview_options": {"is_disabled": True},
+                    },
+                )
             elif kind == "gotify":
                 headers = {"X-Gotify-Key": token} if token else {}
                 target = url.rstrip("/") + "/message"

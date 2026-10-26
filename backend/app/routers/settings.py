@@ -25,7 +25,7 @@ class SettingsIn(BaseModel):
     alert_ping_enabled: bool | None = None
     alert_ping_ms: int | None = Field(default=None, ge=1, le=10000)
     alert_failed: bool | None = None
-    notify_kind: Literal["", "ntfy", "gotify", "webhook"] | None = None
+    notify_kind: Literal["", "ntfy", "gotify", "telegram", "webhook"] | None = None
     #: Leer lassen heisst: nicht aendern. Zum Entfernen notify_kind leeren.
     notify_url: str | None = Field(default=None, max_length=500)
     notify_token: str | None = Field(default=None, max_length=500)
@@ -81,8 +81,19 @@ def put(payload: SettingsIn, db: DbSession) -> dict[str, Any]:
     if changes.get("notify_kind") == "":
         changes["notify_url"] = ""
         changes["notify_token"] = ""
-    if "notify_url" in changes and not changes["notify_url"].lower().startswith(("http://", "https://")):
-        raise fehler("invalid_url", "This is not a valid address.", 422)
+    stored = settings_service.load(db)
+    kind = changes.get("notify_kind", stored["notify_kind"])
+    url = changes.get("notify_url", stored["notify_url"])
+    token = changes.get("notify_token", stored["notify_token"])
+    if kind == "telegram":
+        # Bei Telegram steht im Adressfeld die Chat-ID, die Adresse kennt nexpulse selbst.
+        if ("notify_url" in changes or "notify_kind" in changes) and not notify.TELEGRAM_CHAT.fullmatch(url):
+            raise fehler("invalid_chat_id", "This is not a Telegram chat ID.", 422)
+        if ("notify_token" in changes or "notify_kind" in changes) and not notify.TELEGRAM_TOKEN.fullmatch(token):
+            raise fehler("invalid_bot_token", "This is not a Telegram bot token.", 422)
+    elif kind and ("notify_url" in changes or "notify_kind" in changes) and url:
+        if not url.lower().startswith(("http://", "https://")):
+            raise fehler("invalid_url", "This is not a valid address.", 422)
     settings_service.save(db, changes)
     if "timezone" in changes:
         # Andere Zeitzone, andere Termine.

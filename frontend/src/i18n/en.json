@@ -380,22 +380,31 @@
     "url": {
       "ntfy": "Topic address",
       "gotify": "Gotify address",
+      "telegram": "Chat ID",
       "webhook": "Webhook address"
     },
     "urlPlaceholder": {
       "ntfy": "https://ntfy.example.com/nexpulse",
       "gotify": "https://gotify.example.com",
+      "telegram": "-1001234567890 or @yourchannel",
       "webhook": "https://example.com/hooks/nexpulse"
     },
     "token": {
       "ntfy": "Access token",
       "gotify": "Application token",
+      "telegram": "Bot token",
       "webhook": "Bearer token"
     },
     "optional": "optional",
     "keepHint": "Leave empty to keep the saved address.",
+    "keepChatHint": "Leave empty to keep the saved chat ID.",
+    "telegramHint": "Create a bot with @BotFather and send it a message. Your chat ID is the number from api.telegram.org/bot<token>/getUpdates.",
     "urlRequired": "Enter the address.",
     "urlInvalid": "The address has to start with http:// or https://.",
+    "chatRequired": "Enter the chat ID.",
+    "chatInvalid": "A chat ID is a number such as -1001234567890, or @name for a public channel.",
+    "botTokenRequired": "Enter the bot token from @BotFather.",
+    "botTokenInvalid": "A bot token looks like 123456789:AA… (digits, a colon, then letters).",
     "sendTest": "Send test",
     "testSent": "Test notification sent"
   },
@@ -480,6 +489,8 @@
       "notify_not_configured": "Choose where notifications go first.",
       "notify_unreachable": "The notification target could not be reached.",
       "notify_rejected": "The notification target refused the message. Check the address and token.",
+      "invalid_chat_id": "This is not a Telegram chat ID.",
+      "invalid_bot_token": "This is not a Telegram bot token.",
       "unreachable": "The test server could not be reached.",
       "server_error": "The test server answered with an error.",
       "no_server": "No server answered. Check the source settings.",

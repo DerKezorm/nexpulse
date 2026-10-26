@@ -380,22 +380,31 @@
     "url": {
       "ntfy": "主題位址",
       "gotify": "Gotify 位址",
+      "telegram": "聊天 ID",
       "webhook": "Webhook 位址"
     },
     "urlPlaceholder": {
       "ntfy": "https://ntfy.example.com/nexpulse",
       "gotify": "https://gotify.example.com",
+      "telegram": "-1001234567890 或 @yourchannel",
       "webhook": "https://example.com/hooks/nexpulse"
     },
     "token": {
       "ntfy": "存取權杖",
       "gotify": "應用程式權杖",
+      "telegram": "機器人權杖",
       "webhook": "Bearer 權杖"
     },
     "optional": "選填",
     "keepHint": "留白即可保留已儲存的位址。",
+    "keepChatHint": "留白即可保留已儲存的聊天 ID。",
+    "telegramHint": "透過 @BotFather 建立一個機器人，並傳送一則訊息給它。你的聊天 ID 是 api.telegram.org/bot<權杖>/getUpdates 中的數字。",
     "urlRequired": "請輸入位址。",
     "urlInvalid": "位址必須以 http:// 或 https:// 開頭。",
+    "chatRequired": "請輸入聊天 ID。",
+    "chatInvalid": "聊天 ID 是類似 -1001234567890 的數字，公開頻道則為 @名稱。",
+    "botTokenRequired": "請輸入 @BotFather 提供的機器人權杖。",
+    "botTokenInvalid": "機器人權杖形如 123456789:AA…（數字、冒號，然後是字母）。",
     "sendTest": "傳送測試通知",
     "testSent": "測試通知已傳送"
   },
@@ -480,6 +489,8 @@
       "notify_not_configured": "請先設定通知接收位置。",
       "notify_unreachable": "無法連線至通知接收端。",
       "notify_rejected": "通知接收端拒絕了訊息，請檢查位址和權杖。",
+      "invalid_chat_id": "這不是有效的 Telegram 聊天 ID。",
+      "invalid_bot_token": "這不是有效的 Telegram 機器人權杖。",
       "unreachable": "無法連線至測速伺服器。",
       "server_error": "測速伺服器傳回錯誤。",
       "no_server": "沒有伺服器回應，請檢查測速來源設定。",

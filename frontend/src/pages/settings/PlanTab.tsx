@@ -7,6 +7,10 @@ import { useNotice } from '../../components/Notice'
 import { Banner, Button, Field, PageLoading, Section, SelectField, Switch } from '../../components/ui'
 import { useLoad } from '../../lib/useLoad'
 
+/** Wie im Backend (notify.TELEGRAM_CHAT, notify.TELEGRAM_TOKEN). */
+const TELEGRAM_CHAT = /^(-?\d{1,20}|@[A-Za-z][A-Za-z0-9_]{4,31})$/
+const TELEGRAM_TOKEN = /^\d{1,20}:[A-Za-z0-9_-]{20,100}$/
+
 /** Tarif und Warnungen teilen sich Laden und Speichern, zeigen aber je einen eigenen Reiter. */
 export default function PlanTab({ part }: { part: 'plan' | 'alerts' }) {
   const { t } = useTranslation()
@@ -20,6 +24,7 @@ export default function PlanTab({ part }: { part: 'plan' | 'alerts' }) {
   const [url, setUrl] = useState('')
   const [token, setToken] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
+  const [tokenError, setTokenError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -57,12 +62,24 @@ export default function PlanTab({ part }: { part: 'plan' | 'alerts' }) {
   }
 
   async function saveNotify() {
-    if (kind && !url.trim() && !settings.data?.notify_url_set) {
-      setUrlError(t('plan.urlRequired'))
+    const data = settings.data
+    const telegram = kind === 'telegram'
+    // Chat-ID und Adresse passen nicht ineinander: Beim Wechsel von oder zu Telegram neu eingeben.
+    const switched = telegram !== (data?.notify_kind === 'telegram')
+    if (kind && !url.trim() && (!data?.notify_url_set || switched)) {
+      setUrlError(t(telegram ? 'plan.chatRequired' : 'plan.urlRequired'))
       return
     }
-    if (url.trim() && !/^https?:\/\//i.test(url.trim())) {
-      setUrlError(t('plan.urlInvalid'))
+    if (url.trim() && !(telegram ? TELEGRAM_CHAT.test(url.trim()) : /^https?:\/\//i.test(url.trim()))) {
+      setUrlError(t(telegram ? 'plan.chatInvalid' : 'plan.urlInvalid'))
+      return
+    }
+    if (telegram && !token.trim() && (!data?.notify_token_set || switched)) {
+      setTokenError(t('plan.botTokenRequired'))
+      return
+    }
+    if (telegram && token.trim() && !TELEGRAM_TOKEN.test(token.trim())) {
+      setTokenError(t('plan.botTokenInvalid'))
       return
     }
     setSaving(true)
@@ -132,20 +149,35 @@ export default function PlanTab({ part }: { part: 'plan' | 'alerts' }) {
 
       <Section title={t('plan.notify')} intro={t('plan.notifyIntro')}>
         <div className="grid gap-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
-          <SelectField label={t('plan.notifyKind')} value={kind} onChange={(value) => setKind(value as NotifyKind)}>
+          <SelectField
+            label={t('plan.notifyKind')}
+            value={kind}
+            onChange={(value) => {
+              setKind(value as NotifyKind)
+              setUrlError(null)
+              setTokenError(null)
+            }}
+          >
             <option value="">{t('plan.notifyNone')}</option>
             <option value="ntfy">ntfy</option>
             <option value="gotify">Gotify</option>
+            <option value="telegram">Telegram</option>
             <option value="webhook">{t('plan.webhook')}</option>
           </SelectField>
           {kind && (
             <Field
               label={t(`plan.url.${kind}`)}
-              type="url"
+              type={kind === 'telegram' ? 'text' : 'url'}
               value={url}
-              placeholder={data.notify_url_set ? data.notify_url_masked : t(`plan.urlPlaceholder.${kind}`)}
+              placeholder={data.notify_url_set && data.notify_kind === kind ? data.notify_url_masked : t(`plan.urlPlaceholder.${kind}`)}
               error={urlError}
-              hint={data.notify_url_set ? t('plan.keepHint') : undefined}
+              hint={
+                data.notify_url_set && data.notify_kind === kind
+                  ? t(kind === 'telegram' ? 'plan.keepChatHint' : 'plan.keepHint')
+                  : kind === 'telegram'
+                    ? t('plan.telegramHint')
+                    : undefined
+              }
               onChange={(event) => {
                 setUrl(event.target.value)
                 setUrlError(null)
@@ -159,8 +191,12 @@ export default function PlanTab({ part }: { part: 'plan' | 'alerts' }) {
             type="password"
             autoComplete="off"
             value={token}
-            placeholder={data.notify_token_set ? '••••••••' : t('plan.optional')}
-            onChange={(event) => setToken(event.target.value)}
+            placeholder={data.notify_token_set && data.notify_kind === kind ? '••••••••' : kind === 'telegram' ? '123456789:AA…' : t('plan.optional')}
+            error={tokenError}
+            onChange={(event) => {
+              setToken(event.target.value)
+              setTokenError(null)
+            }}
           />
         )}
         <div className="flex flex-wrap gap-2">

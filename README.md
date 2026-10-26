@@ -32,7 +32,7 @@ The screenshots show a throwaway instance with made-up data.
 - **History** with charts, averages and a CSV export.
 - **Your plan:** enter what your provider promises, and nexpulse marks tests
   below a threshold of it.
-- **Alerts** via ntfy, Gotify or a webhook: slow test, high ping, failed test.
+- **Alerts** via ntfy, Gotify, Telegram or a webhook: slow test, high ping, failed test.
   A schedule can also report every one of its results.
 - **API** for dashboards like [nexdeck](https://github.com/DerKezorm/nexdeck) or
   Home Assistant, with keys that can only read or also start tests.

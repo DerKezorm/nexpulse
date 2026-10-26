@@ -380,22 +380,31 @@
     "url": {
       "ntfy": "Adresse des Themas",
       "gotify": "Gotify-Adresse",
+      "telegram": "Chat-ID",
       "webhook": "Webhook-Adresse"
     },
     "urlPlaceholder": {
       "ntfy": "https://ntfy.example.com/nexpulse",
       "gotify": "https://gotify.example.com",
+      "telegram": "-1001234567890 oder @deinkanal",
       "webhook": "https://example.com/hooks/nexpulse"
     },
     "token": {
       "ntfy": "Zugangstoken",
       "gotify": "Anwendungstoken",
+      "telegram": "Bot-Token",
       "webhook": "Bearer-Token"
     },
     "optional": "optional",
     "keepHint": "Leer lassen, um die gespeicherte Adresse zu behalten.",
+    "keepChatHint": "Leer lassen, um die gespeicherte Chat-ID zu behalten.",
+    "telegramHint": "Leg bei @BotFather einen Bot an und schreib ihm eine Nachricht. Deine Chat-ID ist die Zahl aus api.telegram.org/bot<Token>/getUpdates.",
     "urlRequired": "Gib die Adresse ein.",
     "urlInvalid": "Die Adresse muss mit http:// oder https:// beginnen.",
+    "chatRequired": "Gib die Chat-ID ein.",
+    "chatInvalid": "Eine Chat-ID ist eine Zahl wie -1001234567890 oder @name für einen öffentlichen Kanal.",
+    "botTokenRequired": "Gib den Bot-Token von @BotFather ein.",
+    "botTokenInvalid": "Ein Bot-Token sieht so aus: 123456789:AA… (Ziffern, ein Doppelpunkt, dann Buchstaben).",
     "sendTest": "Test senden",
     "testSent": "Testnachricht gesendet"
   },
@@ -480,6 +489,8 @@
       "notify_not_configured": "Wähle zuerst, wohin Benachrichtigungen gehen.",
       "notify_unreachable": "Das Ziel für Benachrichtigungen war nicht erreichbar.",
       "notify_rejected": "Das Ziel hat die Nachricht abgelehnt. Prüfe Adresse und Token.",
+      "invalid_chat_id": "Das ist keine Telegram-Chat-ID.",
+      "invalid_bot_token": "Das ist kein Telegram-Bot-Token.",
       "unreachable": "Der Testserver war nicht erreichbar.",
       "server_error": "Der Testserver hat mit einem Fehler geantwortet.",
       "no_server": "Kein Server hat geantwortet. Prüfe die Einstellungen der Quelle.",

@@ -133,7 +133,7 @@ export type SourcesState = {
   }
 }
 
-export type NotifyKind = '' | 'ntfy' | 'gotify' | 'webhook'
+export type NotifyKind = '' | 'ntfy' | 'gotify' | 'telegram' | 'webhook'
 
 export type Settings = {
   plan_down: number | null
