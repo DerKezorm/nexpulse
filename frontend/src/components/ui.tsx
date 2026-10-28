@@ -21,10 +21,12 @@ type ButtonProps = ComponentPropsWithRef<'button'> & {
 }
 
 export function Button({ variant = 'primary', size = 'md', loading = false, className = '', children, disabled, ...rest }: ButtonProps) {
+  // Die Beschriftung steckt in einem eigenen Element: Uebersetzt der Browser die Seite, tauscht er Textknoten aus,
+  // und React faende den Text nicht mehr, vor den der Spinner soll. `contents` laesst das Layout unberuehrt.
   return (
     <button type="button" className={`${buttonClasses(variant, size)} ${className}`} disabled={disabled || loading} {...rest}>
       {loading && <Spinner />}
-      {children}
+      <span className="contents">{children}</span>
     </button>
   )
 }
