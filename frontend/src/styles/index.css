@@ -110,3 +110,23 @@
       radial-gradient(38rem 22rem at 88% 8%, rgb(77 124 15 / 0.06), transparent 70%);
   }
 }
+
+/* Das Zeichen (components/Logo.tsx): dunkle Kachel im dunklen Modus, weisse im hellen. Quelle nexapps/icons-vergleich/neu.py. */
+:root {
+  --np-logo-grund: #0d110a;
+  --np-logo-rand: #a3e635;
+  --np-logo-rand-deckung: 0.45;
+  --np-logo-verlauf-1: #ecfccb;
+  --np-logo-verlauf-2: #a3e635;
+  --np-logo-verlauf-3: #65a30d;
+  --np-logo-zeiger: #bef264;
+}
+:root[data-theme='light'] {
+  --np-logo-grund: #ffffff;
+  --np-logo-rand: #65a30d;
+  --np-logo-rand-deckung: 0.35;
+  --np-logo-verlauf-1: #bef264;
+  --np-logo-verlauf-2: #65a30d;
+  --np-logo-verlauf-3: #365314;
+  --np-logo-zeiger: #4d8f0a;
+}

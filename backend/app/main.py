@@ -100,7 +100,15 @@ def _mount_frontend(target: FastAPI, dist: Path) -> None:
             return JSONResponse(status_code=404, content={"detail": meldung("not_found", "Not found.")})
         candidate = (dist / path).resolve()
         if path and candidate.is_file() and root in candidate.parents and candidate != start_page:
-            return FileResponse(candidate)
+            if path.startswith("assets/"):
+                return FileResponse(candidate)
+            # Alles aus public/ (Zeichen, Symbole, Manifest) hat keine Pruefsumme im Namen: der Browser fragt vor dem
+            # Benutzen nach, sonst behaelt er nach einem Update das alte Zeichen.
+            again = {"Cache-Control": "no-cache"}
+            if path.endswith(".webmanifest"):
+                # Nicht jedes System kennt die Endung; ohne den Typ nimmt der Browser das Manifest nicht an.
+                return FileResponse(candidate, media_type="application/manifest+json", headers=again)
+            return FileResponse(candidate, headers=again)
         # Die Startseite fragt der Browser vor jeder Nutzung nach. Sonst behaelt er
         # nach einem Update die alte, die auf Dateien zeigt, die es nicht mehr gibt.
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
